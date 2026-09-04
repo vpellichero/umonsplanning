@@ -38,6 +38,29 @@ export class CalendarLinkDialog {
   /** false = one event per course (default), true = one event per day. */
   protected readonly perDayLayout = signal(false);
 
+  /**
+   * User override for the per-day layout's event title, `null` while untouched — in which case
+   * {@link perDayTitle} falls back to {@link defaultPerDayTitle}. Reset on formation/section
+   * change so a title from a previous choice is never silently carried over.
+   */
+  private readonly customTitle = signal<string | null>(null);
+
+  /** "Formation / Section" title the backend would use by default for the per-day layout. */
+  protected readonly defaultPerDayTitle = computed(() => {
+    const formation = this.catalog.formations.value().find((f) => f.id === this.formationId());
+    if (!formation) {
+      return '';
+    }
+
+    const sectionId = this.sectionId();
+    const section = sectionId
+      ? this.catalog.sections.value().find((s) => s.id === sectionId)
+      : null;
+    return section ? `${formation.label} / ${section.label}` : formation.label;
+  });
+
+  protected readonly perDayTitle = computed(() => this.customTitle() ?? this.defaultPerDayTitle());
+
   private readonly layoutHelpButton = viewChild<ElementRef<HTMLButtonElement>>('layoutHelpButton');
 
   /**
@@ -92,7 +115,17 @@ export class CalendarLinkDialog {
   onFormationChange(formationId: string): void {
     this.formationId.set(formationId || null);
     this.sectionId.set(null);
+    this.customTitle.set(null);
     this.catalog.selectFormation(formationId || null);
+  }
+
+  onSectionChange(sectionId: string): void {
+    this.sectionId.set(sectionId || null);
+    this.customTitle.set(null);
+  }
+
+  onTitleInput(title: string): void {
+    this.customTitle.set(title);
   }
 
   /** Opens the native date picker — the calendar button only ever calls this. */
@@ -165,7 +198,7 @@ export class CalendarLinkDialog {
       this.preview().open();
     } catch {
       this.testError.set(
-        "Impossible de récupérer ce calendrier pour le moment. Réessayez dans un instant.",
+        'Impossible de récupérer ce calendrier pour le moment. Réessayez dans un instant.',
       );
     } finally {
       this.testing.set(false);
@@ -186,6 +219,10 @@ export class CalendarLinkDialog {
 
     if (this.perDayLayout()) {
       params.set('layout', 'PerDay');
+      const title = this.perDayTitle().trim();
+      if (title) {
+        params.set('title', title);
+      }
     }
 
     return params;

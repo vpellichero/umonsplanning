@@ -81,14 +81,34 @@ public class ScheduleIcsBuilderTests
     }
 
     [Fact]
-    public void Build_PerDay_ProducesOneAllDayEventPerDay()
+    public void Build_PerDay_SpansFromFirstCourseStartToLastCourseEnd()
     {
         DayDto day = BuildDay(isCancelled: false);
 
         string ics = ScheduleIcsBuilder.Build(Formation, section: null, [day], IcsLayout.PerDay, FixedTimeProvider);
 
-        ics.Should().Contain("DTSTART;VALUE=DATE:20260921");
+        ics.Should().Contain("DTSTART;TZID=Europe/Brussels:20260921T091500");
+        ics.Should().Contain("DTEND;TZID=Europe/Brussels:20260921T101500");
         ics.Split("BEGIN:VEVENT").Should().HaveCount(2, "a single day with courses produces exactly one VEVENT");
+    }
+
+    [Fact]
+    public void Build_PerDay_MultipleCourses_SpansFromEarliestStartToLatestEnd()
+    {
+        CourseDto morning = BuildCourse(isCancelled: false);
+        CourseDto afternoon = morning with
+        {
+            Key = "b1a2c3d4e5f60718",
+            SourceId = "10#c3",
+            Start = new DateTime(2026, 9, 21, 14, 0, 0),
+            End = new DateTime(2026, 9, 21, 16, 0, 0)
+        };
+        var day = new DayDto(morning.Date, morning.DayOfWeek, [afternoon, morning]);
+
+        string ics = ScheduleIcsBuilder.Build(Formation, section: null, [day], IcsLayout.PerDay, FixedTimeProvider);
+
+        ics.Should().Contain("DTSTART;TZID=Europe/Brussels:20260921T091500");
+        ics.Should().Contain("DTEND;TZID=Europe/Brussels:20260921T160000");
     }
 
     [Fact]
@@ -111,6 +131,30 @@ public class ScheduleIcsBuilderTests
 
         ics.Should().Contain("SUMMARY:.BAB3 - Traduction et interprétation");
         ics.Should().NotContain("SUMMARY:.BAB3 - Traduction et interprétation /");
+    }
+
+    [Fact]
+    public void Build_PerDay_CustomTitleReplacesTheDefaultTitle()
+    {
+        var section = new ResourceDto("d3", "D3");
+        DayDto day = BuildDay(isCancelled: false);
+
+        string ics = ScheduleIcsBuilder.Build(
+            Formation, section, [day], IcsLayout.PerDay, FixedTimeProvider, title: "Cours BAB3");
+
+        ics.Should().Contain("SUMMARY:Cours BAB3");
+        ics.Should().NotContain("SUMMARY:.BAB3 - Traduction et interprétation / D3");
+    }
+
+    [Fact]
+    public void Build_PerDay_BlankCustomTitleFallsBackToTheDefaultTitle()
+    {
+        DayDto day = BuildDay(isCancelled: false);
+
+        string ics = ScheduleIcsBuilder.Build(
+            Formation, section: null, [day], IcsLayout.PerDay, FixedTimeProvider, title: "   ");
+
+        ics.Should().Contain("SUMMARY:.BAB3 - Traduction et interprétation");
     }
 
     [Fact]
@@ -144,24 +188,25 @@ public class ScheduleIcsBuilderTests
 
     private static DayDto BuildDay(bool isCancelled)
     {
-        var course = new CourseDto
-        {
-            Key = "9f2c41ab7d0e5533",
-            SourceId = "10#c2",
-            Date = new DateOnly(2026, 9, 21),
-            DayOfWeek = DayOfWeek.Monday,
-            Start = new DateTime(2026, 9, 21, 9, 15, 0),
-            End = new DateTime(2026, 9, 21, 10, 15, 0),
-            DurationMinutes = 60,
-            Subject = new SubjectDto("T-ALLE-401 - Langue ALLE", "T-ALLE-401", "Langue ALLE"),
-            Rooms = ["NiDeVinci.313"],
-            Groups = ["<.BAB3 - Traduction et interprétation>D3"],
-            Category = "Cours",
-            IsCancelled = isCancelled
-        };
-
+        CourseDto course = BuildCourse(isCancelled);
         return new DayDto(course.Date, course.DayOfWeek, [course]);
     }
+
+    private static CourseDto BuildCourse(bool isCancelled) => new()
+    {
+        Key = "9f2c41ab7d0e5533",
+        SourceId = "10#c2",
+        Date = new DateOnly(2026, 9, 21),
+        DayOfWeek = DayOfWeek.Monday,
+        Start = new DateTime(2026, 9, 21, 9, 15, 0),
+        End = new DateTime(2026, 9, 21, 10, 15, 0),
+        DurationMinutes = 60,
+        Subject = new SubjectDto("T-ALLE-401 - Langue ALLE", "T-ALLE-401", "Langue ALLE"),
+        Rooms = ["NiDeVinci.313"],
+        Groups = ["<.BAB3 - Traduction et interprétation>D3"],
+        Category = "Cours",
+        IsCancelled = isCancelled
+    };
 
     /// <summary>Minimal fixed clock: avoids pulling in Microsoft.Extensions.TimeProvider.Testing for a single test.</summary>
     private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider

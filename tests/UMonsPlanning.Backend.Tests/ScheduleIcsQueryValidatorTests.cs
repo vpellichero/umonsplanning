@@ -106,4 +106,24 @@ public class ScheduleIcsQueryValidatorTests
     public void Validate_UndefinedLayoutValue_HasError()
         => _validator.TestValidate(new ScheduleIcsQuery { Formation = "bab3", Layout = (IcsLayout)99 })
             .ShouldHaveValidationErrorFor(x => x.Layout);
+
+    [Fact]
+    public void Validate_TitleWithPerDayLayout_IsValid()
+        => _validator.TestValidate(new ScheduleIcsQuery { Formation = "bab3", Layout = IcsLayout.PerDay, Title = "Cours BAB3" })
+            .ShouldNotHaveAnyValidationErrors();
+
+    [Fact]
+    public void Validate_TitleWithoutPerDayLayout_HasError()
+        => _validator.TestValidate(new ScheduleIcsQuery { Formation = "bab3", Title = "Cours BAB3" })
+            .ShouldHaveValidationErrorFor(x => x.Title);
+
+    [Fact]
+    public void Validate_TitleWithPerCourseLayout_HasError()
+        => _validator.TestValidate(new ScheduleIcsQuery { Formation = "bab3", Layout = IcsLayout.PerCourse, Title = "Cours BAB3" })
+            .ShouldHaveValidationErrorFor(x => x.Title);
+
+    [Fact]
+    public void Validate_TitleTooLong_HasError()
+        => _validator.TestValidate(new ScheduleIcsQuery { Formation = "bab3", Layout = IcsLayout.PerDay, Title = new string('a', 201) })
+            .ShouldHaveValidationErrorFor(x => x.Title);
 }

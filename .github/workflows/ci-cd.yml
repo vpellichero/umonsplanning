@@ -75,15 +75,25 @@ jobs:
         run: dotnet publish src/UMonsPlanning.Backend -c Release -o publish
 
       - name: Build frontend
+        # "staging" swaps in environment.staging.ts (fileReplacements, angular.json) so this build
+        # alone renders the test-only watermark (docs/adr/0011) - the prod job below stays plain
+        # "npm run build" (defaultConfiguration "production", no watermark).
         working-directory: src/UMonsPlanning.Frontend
         run: |
           npm ci
-          npm run build
+          npm run build -- --configuration=production,staging
 
       - name: Merge frontend into the backend's wwwroot
         run: |
           mkdir -p publish/wwwroot
           cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
+
+      - name: Seed the maintenance-mode marker file
+        # Must sit at the site root (next to web.config), not under wwwroot: this is what
+        # "Enter/Leave maintenance mode" below renames to/from app_offline.htm, and what ANCM
+        # watches for at the root to take the app offline and release its file locks (see
+        # docs/adr/0010). Placing it under wwwroot instead silently no-ops that toggle forever.
+        run: cp deploy/_app_offline.htm publish/_app_offline.htm
 
       - name: Install lftp
         run: sudo apt-get update -y && sudo apt-get install -y lftp
@@ -114,7 +124,22 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --no-perms --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
+          # --ignore-time: the local files are freshly built on every run (fresh mtimes) even when
+          # their content is unchanged, so time-based comparison would re-upload everything every
+          # time; comparing by size only actually skips files that haven't changed since the last
+          # deploy, which is what makes this fast.
+          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm publish/ /; bye"
+          # Retried: right after app_offline.htm takes effect, IIS's in-process hosting can take a
+          # few seconds to release its lock on the app's own assemblies, which fails their transfer
+          # with FTP error 550 - retrying a few seconds later succeeds once the lock clears.
+          for attempt in 1 2 3; do
+            if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$MIRROR_CMD" "ftp://$FTP_HOST"; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
@@ -123,7 +148,11 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
+          # The mirror above re-deposits _app_offline.htm: its local source no longer matches a
+          # same-named remote file once this run's "Enter maintenance mode" renamed the original
+          # away. Remove that stray copy first, or the rename below collides with it (observed:
+          # FTP 550, renaming onto an existing destination leaves the site stuck in maintenance).
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; rm _app_offline.htm; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
 
   deploy-prod:
     needs: [build-backend, build-frontend]
@@ -161,6 +190,13 @@ jobs:
           mkdir -p publish/wwwroot
           cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
 
+      - name: Seed the maintenance-mode marker file
+        # Must sit at the site root (next to web.config), not under wwwroot: this is what
+        # "Enter/Leave maintenance mode" below renames to/from app_offline.htm, and what ANCM
+        # watches for at the root to take the app offline and release its file locks (see
+        # docs/adr/0010). Placing it under wwwroot instead silently no-ops that toggle forever.
+        run: cp deploy/_app_offline.htm publish/_app_offline.htm
+
       - name: Install lftp
         run: sudo apt-get update -y && sudo apt-get install -y lftp
 
@@ -190,7 +226,22 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --no-perms --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
+          # --ignore-time: the local files are freshly built on every run (fresh mtimes) even when
+          # their content is unchanged, so time-based comparison would re-upload everything every
+          # time; comparing by size only actually skips files that haven't changed since the last
+          # deploy, which is what makes this fast.
+          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm publish/ /; bye"
+          # Retried: right after app_offline.htm takes effect, IIS's in-process hosting can take a
+          # few seconds to release its lock on the app's own assemblies, which fails their transfer
+          # with FTP error 550 - retrying a few seconds later succeeds once the lock clears.
+          for attempt in 1 2 3; do
+            if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$MIRROR_CMD" "ftp://$FTP_HOST"; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
@@ -199,4 +250,8 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
+          # The mirror above re-deposits _app_offline.htm: its local source no longer matches a
+          # same-named remote file once this run's "Enter maintenance mode" renamed the original
+          # away. Remove that stray copy first, or the rename below collides with it (observed:
+          # FTP 550, renaming onto an existing destination leaves the site stuck in maintenance).
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; rm _app_offline.htm; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"

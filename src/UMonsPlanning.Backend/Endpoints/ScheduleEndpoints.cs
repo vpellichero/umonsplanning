@@ -71,7 +71,7 @@ public static class ScheduleEndpoints
            .AddEndpointFilter<ValidationFilter<ScheduleIcsQuery>>()
            .RequireRateLimiting(PronoteRateLimitPolicyName)
            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(30))
-                              .SetVaryByQuery("formation", "section", "week", "date", "start", "end", "layout"))
+                              .SetVaryByQuery("formation", "section", "week", "date", "start", "end", "layout", "title"))
            .WithName("GetScheduleIcs")
            .WithSummary("iCalendar export (.ics) — subscribe to it as-is in a calendar application.")
            .WithDescription("""
@@ -89,6 +89,8 @@ public static class ScheduleEndpoints
 
                 layout : "PerCourse" (default) — one event per course ;
                          "PerDay" — one event per day, course details listed in its description.
+                title  : custom event title, only valid with layout=PerDay — replaces the default
+                         "Formation / Section" title.
                 """)
            .Produces<string>(contentType: "text/calendar");
 
@@ -131,7 +133,7 @@ public static class ScheduleEndpoints
             section = last.Section;
         }
 
-        return ScheduleIcsBuilder.Build(formation, section, days, query.Layout ?? IcsLayout.PerCourse, timeProvider);
+        return ScheduleIcsBuilder.Build(formation, section, days, query.Layout ?? IcsLayout.PerCourse, timeProvider, query.Title);
     }
 
     private static async Task<IReadOnlyList<int>> ResolveWeeksAsync(

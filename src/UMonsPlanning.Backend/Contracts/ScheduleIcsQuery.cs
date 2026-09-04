@@ -33,4 +33,10 @@ public sealed record ScheduleIcsQuery
 
     /// <summary>Generation mode for the .ics file. Defaults to <see cref="IcsLayout.PerCourse"/> when omitted.</summary>
     public IcsLayout? Layout { get; init; }
+
+    /// <summary>
+    /// Custom event title for the <see cref="IcsLayout.PerDay"/> layout, used as-is instead of
+    /// the "Formation / Section" default. Only valid alongside that layout.
+    /// </summary>
+    public string? Title { get; init; }
 }

@@ -44,13 +44,26 @@ suivant) — preuve concrète que le client Node de cette action gère mal une p
 de données de cet hébergeur, que `lftp` (bien plus ancien, bien plus éprouvé en interopérabilité
 FTP/FTPS) gère correctement. `lftp` est donc utilisé pour **toute** l'interaction FTP de ce
 workflow — la bascule de maintenance ET la synchronisation elle-même
-(`mirror --reverse --delete --no-perms --exclude-glob app_offline.htm publish/ /`), avec
-`mirror:parallel-transfer-count 1` fixé explicitement (pas de suppositions sur le nombre de
+(`mirror --reverse --delete --no-perms --ignore-time --exclude-glob app_offline.htm publish/ /`),
+avec `mirror:parallel-transfer-count 1` fixé explicitement (pas de suppositions sur le nombre de
 connexions simultanées qu'un hébergement mutualisé tolère). `--no-perms` a lui aussi été ajouté
 après un échec réel : le premier essai transférait tous les fichiers avec succès puis échouait à la
 toute fin sur `chmod: Operation not supported: MFF and SITE CHMOD are not supported by this site`
 — attendu sur un serveur FTP Windows/IIS, qui n'a pas de bits de permission Unix à faire
-correspondre. Installé à la volée sur le runner
+correspondre. `--ignore-time`, constaté après coup : `mirror` compare par défaut taille **et**
+date, mais `publish/` est reconstruit à neuf à chaque run (`dotnet publish`/`npm run build`), donc
+chaque fichier local a toujours un horodatage plus récent que sa copie distante, quel que soit son
+contenu — sans cet indicateur, la comparaison par date renvoyait systématiquement « différent » et
+`mirror` retransférait tout le site à chaque déploiement. La comparaison par taille seule accepte
+en échange qu'un fichier dont le contenu change sans que sa taille change ne soit pas retransféré —
+cas extrêmement improbable, jugé acceptable ici. La synchronisation est en plus retentée jusqu'à 3
+fois (délai de 15 s entre essais) : juste après la pose de `app_offline.htm`, le mode d'hébergement
+in-process (`hostingModel="inprocess"`, voir `docs/ai/securite-rgpd.md` §3) met parfois quelques
+secondes à relâcher son verrou sur ses propres assemblies (`UMonsPlanning.Backend.dll`/`.pdb`,
+`UMonsPlanning.Pronote.dll`), ce qui fait échouer leur transfert avec une erreur FTP 550 si
+`mirror` démarre trop tôt.
+
+Installé à la volée sur le runner
 (`apt-get install lftp`), pas une dépendance persistante du projet — un outil ponctuel comme
 `sharp`/`png-to-ico` pour les favicons (`src/UMonsPlanning.Frontend/README.md`). Les actions
 officielles GitHub (`actions/checkout`, `actions/setup-dotnet`, `actions/setup-node`) restent
@@ -71,6 +84,33 @@ Second cas limite constaté au tout premier déploiement réel : sur un serveur 
 renommage ; s'il est absent (premier déploiement, ou fichier supprimé manuellement), le job continue
 sans bascule ni restauration — la synchronisation qui suit le dépose de toute façon pour la
 prochaine fois.
+
+Troisième cas limite, plus sérieux, constaté plusieurs déploiements plus tard : `_app_offline.htm`
+n'a en réalité **jamais** été déposé à la racine du site, dans aucun déploiement. Le fichier
+source vivait dans `src/UMonsPlanning.Frontend/public/`, un dossier qu'Angular copie tel quel à la
+racine de sa sortie de build — donc l'étape « Merge frontend into the backend's wwwroot » le
+plaçait en `publish/wwwroot/_app_offline.htm`, et le `mirror` l'envoyait en conséquence en
+`/wwwroot/_app_offline.htm` sur le serveur, jamais en `/_app_offline.htm`. La bascule de
+maintenance, qui ne regarde que la racine FTP, ne l'y trouvait donc jamais et tombait
+systématiquement dans le cas « rien à faire » ci-dessus, y compris pour tous les déploiements
+suivant le premier. Conséquence directe : `app_offline.htm` n'a jamais réellement été posé, IIS
+n'a jamais relâché ses verrous sur les assemblies, et chaque déploiement touchant
+`UMonsPlanning.Backend.dll`/`.pdb` échouait avec l'erreur `550` décrite plus haut — la retentative
+ajoutée à ce moment-là ne pouvait rien y faire, puisque le processus ne s'arrêtait jamais. Le
+fichier source vit maintenant hors du frontend, en `deploy/_app_offline.htm` (ce n'est pas un
+asset Angular mais une préoccupation d'hébergement IIS), et une étape dédiée du job
+(« Seed the maintenance-mode marker file ») le copie explicitement vers `publish/_app_offline.htm`
+— à la racine du publié, au même niveau que `web.config` — avant l'envoi FTP.
+
+Quatrième cas limite, conséquence directe du précédent : une fois `_app_offline.htm` correctement
+déposé à la racine, la bascule fonctionne enfin (bonne nouvelle), mais la synchronisation `mirror`
+qui suit **redépose aussitôt un nouveau `_app_offline.htm`** — sa copie locale ne correspond plus à
+aucun fichier distant de ce nom, puisque celui-ci vient d'être renommé en `app_offline.htm` par
+« Enter maintenance mode ». Résultat : au moment où « Leave maintenance mode » tente de renommer
+`app_offline.htm` → `_app_offline.htm` en fin de déploiement, la destination existe déjà, et le
+renommage échoue (`550`) — le site reste bloqué en maintenance jusqu'à intervention manuelle,
+malgré un job marqué « success ». La bascule de sortie supprime maintenant l'éventuelle copie
+parasite avant de renommer (`rm _app_offline.htm; mv app_offline.htm _app_offline.htm`).
 
 **Vérification du certificat TLS assouplie, constatée en production, pas préventive** : le premier
 déploiement réel a échoué avec `Certificate verification: certificate common name doesn't match
@@ -98,9 +138,10 @@ GitHub Actions (6 h) si quelque chose venait à bloquer.
 
 ## Conséquences
 
-- Un déploiement republie systématiquement tout (pas de déploiement incrémental) : simple et
-  suffisant pour le volume de ce projet ; à revoir seulement si les temps de build deviennent
-  gênants.
+- Un déploiement ne retransfère que les fichiers dont la taille a changé depuis le dernier déploiement
+  (`--ignore-time`, voir plus haut) — les fichiers identiques (assets statiques inchangés,
+  `appsettings.json`, etc.) sont sautés, ce qui accélère nettement le déploiement par rapport à une
+  republication complète systématique.
 - Le compte GitHub du mainteneur doit disposer du scope OAuth `workflow` pour que `gh`/git puisse
   pousser des fichiers sous `.github/workflows/` — absent par défaut, à ajouter explicitement
   (`gh auth refresh -s workflow`).
