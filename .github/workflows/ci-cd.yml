@@ -6,13 +6,12 @@ on:
   pull_request:
     branches: [main, develop]
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-backend:
     runs-on: ubuntu-latest
+    concurrency:
+      group: build-backend-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
 
@@ -27,6 +26,9 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
+    concurrency:
+      group: build-frontend-${{ github.ref }}
+      cancel-in-progress: true
     defaults:
       run:
         working-directory: src/UMonsPlanning.Frontend
@@ -48,6 +50,12 @@ jobs:
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: test
+    concurrency:
+      # No cancel-in-progress: this job toggles app_offline.htm on the server around the deploy —
+      # cancelling it mid-run could leave the site stuck in maintenance mode. A newer push queues
+      # behind the current deploy instead of aborting it.
+      group: deploy-test
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
 
@@ -119,6 +127,10 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      # Same reasoning as deploy-test: never cancel a deploy mid-way, queue behind it instead.
+      group: deploy-prod
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
 
