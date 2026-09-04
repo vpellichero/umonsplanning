@@ -75,10 +75,13 @@ jobs:
         run: dotnet publish src/UMonsPlanning.Backend -c Release -o publish
 
       - name: Build frontend
+        # "staging" swaps in environment.staging.ts (fileReplacements, angular.json) so this build
+        # alone renders the test-only watermark (docs/adr/0011) - the prod job below stays plain
+        # "npm run build" (defaultConfiguration "production", no watermark).
         working-directory: src/UMonsPlanning.Frontend
         run: |
           npm ci
-          npm run build
+          npm run build -- --configuration=production,staging
 
       - name: Merge frontend into the backend's wwwroot
         run: |
