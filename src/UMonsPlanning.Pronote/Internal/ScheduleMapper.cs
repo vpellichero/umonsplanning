@@ -189,29 +189,29 @@ public static class ScheduleMapper
         switch (element.ValueKind)
         {
             case JsonValueKind.Array:
-            {
-                var labels = new List<string>();
-                foreach (JsonElement item in element.EnumerateArray())
                 {
-                    string? label = ReadLabel(item);
-                    if (!string.IsNullOrWhiteSpace(label))
+                    var labels = new List<string>();
+                    foreach (JsonElement item in element.EnumerateArray())
                     {
-                        labels.Add(label);
+                        string? label = ReadLabel(item);
+                        if (!string.IsNullOrWhiteSpace(label))
+                        {
+                            labels.Add(label);
+                        }
                     }
-                }
 
-                return labels;
-            }
+                    return labels;
+                }
             case JsonValueKind.Object:
-            {
-                string? label = ReadLabel(element);
-                return string.IsNullOrWhiteSpace(label) ? Array.Empty<string>() : new[] { label };
-            }
+                {
+                    string? label = ReadLabel(element);
+                    return string.IsNullOrWhiteSpace(label) ? Array.Empty<string>() : new[] { label };
+                }
             case JsonValueKind.String:
-            {
-                string? label = element.GetString();
-                return string.IsNullOrWhiteSpace(label) ? Array.Empty<string>() : new[] { label };
-            }
+                {
+                    string? label = element.GetString();
+                    return string.IsNullOrWhiteSpace(label) ? Array.Empty<string>() : new[] { label };
+                }
             default:
                 return Array.Empty<string>();
         }
