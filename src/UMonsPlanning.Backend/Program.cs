@@ -8,6 +8,7 @@ using Scalar.AspNetCore;
 using UMonsPlanning.Backend.Catalog;
 using UMonsPlanning.Backend.Contracts;
 using UMonsPlanning.Backend.Endpoints;
+using UMonsPlanning.Backend.Stats;
 using UMonsPlanning.Pronote;
 using UMonsPlanning.Pronote.Models;
 
@@ -33,6 +34,12 @@ builder.Services.AddOptions<PronoteOptions>()
 builder.Services.AddSingleton<FormationCatalogCache>();
 builder.Services.AddOptions<CatalogOptions>()
     .Bind(builder.Configuration.GetSection(CatalogOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<CalendarLinkCounter>();
+builder.Services.AddOptions<StatsOptions>()
+    .Bind(builder.Configuration.GetSection(StatsOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
@@ -137,6 +144,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok", utc = DateTimeOf
 
 app.MapCatalogEndpoints();
 app.MapScheduleEndpoints();
+app.MapStatsEndpoints();
 
 // Serves the Angular app for every route it owns client-side (e.g. /aide) accessed directly ;
 // only reached when no API/Scalar/OpenAPI endpoint above already matched. The regex excludes

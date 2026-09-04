@@ -2,10 +2,11 @@ import { NgOptimizedImage } from '@angular/common';
 import { ChangeDetectionStrategy, Component, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CalendarLinkDialog } from '../calendar-link/calendar-link-dialog';
+import { CalendarLinkCounter } from './calendar-link-counter';
 
 @Component({
   selector: 'app-home-page',
-  imports: [CalendarLinkDialog, RouterLink, NgOptimizedImage],
+  imports: [CalendarLinkDialog, RouterLink, NgOptimizedImage, CalendarLinkCounter],
   templateUrl: './home-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

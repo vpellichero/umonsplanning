@@ -12,6 +12,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { CatalogService } from '../../core/catalog.service';
 import type { PreviewEvent } from '../../core/models';
+import { StatsService } from '../../core/stats.service';
 import { parseIcsToEvents } from './ics-parser';
 import { SchedulePreviewDialog } from './schedule-preview-dialog';
 
@@ -24,6 +25,7 @@ import { SchedulePreviewDialog } from './schedule-preview-dialog';
 export class CalendarLinkDialog {
   protected readonly catalog = inject(CatalogService);
   private readonly http = inject(HttpClient);
+  private readonly stats = inject(StatsService);
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly preview = viewChild.required(SchedulePreviewDialog);
@@ -170,6 +172,9 @@ export class CalendarLinkDialog {
     await navigator.clipboard.writeText(url);
     this.linkCopied.set(true);
     setTimeout(() => this.linkCopied.set(false), 2000);
+
+    // Not "testCalendar()": that one is a preview, never a real generation.
+    this.stats.recordCalendarLinkGenerated();
   }
 
   async testCalendar(): Promise<void> {
