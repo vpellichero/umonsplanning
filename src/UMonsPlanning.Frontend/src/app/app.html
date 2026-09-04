@@ -7,7 +7,10 @@
 
 <header class="border-b border-slate-200 bg-white">
   <div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-    <a routerLink="/" class="flex items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+    <a
+      routerLink="/"
+      class="flex items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+    >
       <img
         ngSrc="logo-horizontal-header.webp"
         alt="UMonsPlanning"
@@ -15,7 +18,7 @@
         height="32"
         priority
         class="h-8 w-auto"
-      >
+      />
     </a>
     <nav aria-label="Navigation principale">
       <a
@@ -45,3 +48,5 @@
     </a>
   </p>
 </footer>
+
+<app-legal-disclaimer-dialog />

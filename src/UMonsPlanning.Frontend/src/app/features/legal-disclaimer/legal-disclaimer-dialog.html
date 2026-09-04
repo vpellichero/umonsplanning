@@ -1,0 +1,39 @@
+<dialog
+  #dialog
+  class="m-4 w-full max-w-lg rounded-card p-0 backdrop:bg-slate-900/50 sm:m-auto"
+  aria-labelledby="legal-disclaimer-title"
+  (cancel)="preventDismiss($event)"
+>
+  <div class="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
+    <h2 id="legal-disclaimer-title" class="text-lg font-semibold text-slate-900">Avertissement</h2>
+
+    <div class="space-y-3 text-sm text-slate-600">
+      <p>
+        UMonsPlanning est un outil personnel, non officiel. Il n'est ni développé, ni approuvé, ni
+        géré par l'Université de Mons ou par PRONOTE, et n'a aucun lien avec eux.
+      </p>
+      <p>
+        Ce service est fourni gratuitement, tel quel, sans aucune garantie. Son auteur décline toute
+        responsabilité en cas d'erreur, d'inexactitude ou d'indisponibilité des calendriers générés
+        : en cas de doute, vérifiez toujours votre horaire officiel sur PRONOTE.
+      </p>
+    </div>
+
+    <div class="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+        (click)="decline()"
+      >
+        Refuser
+      </button>
+      <button
+        type="button"
+        class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        (click)="accept()"
+      >
+        J'accepte
+      </button>
+    </div>
+  </div>
+</dialog>
