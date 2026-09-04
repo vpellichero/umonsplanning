@@ -114,7 +114,7 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --no-perms --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
@@ -190,7 +190,7 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --no-perms --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'

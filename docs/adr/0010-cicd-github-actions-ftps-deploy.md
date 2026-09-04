@@ -44,9 +44,13 @@ suivant) — preuve concrète que le client Node de cette action gère mal une p
 de données de cet hébergeur, que `lftp` (bien plus ancien, bien plus éprouvé en interopérabilité
 FTP/FTPS) gère correctement. `lftp` est donc utilisé pour **toute** l'interaction FTP de ce
 workflow — la bascule de maintenance ET la synchronisation elle-même
-(`mirror --reverse --delete --exclude-glob app_offline.htm publish/ /`), avec
+(`mirror --reverse --delete --no-perms --exclude-glob app_offline.htm publish/ /`), avec
 `mirror:parallel-transfer-count 1` fixé explicitement (pas de suppositions sur le nombre de
-connexions simultanées qu'un hébergement mutualisé tolère). Installé à la volée sur le runner
+connexions simultanées qu'un hébergement mutualisé tolère). `--no-perms` a lui aussi été ajouté
+après un échec réel : le premier essai transférait tous les fichiers avec succès puis échouait à la
+toute fin sur `chmod: Operation not supported: MFF and SITE CHMOD are not supported by this site`
+— attendu sur un serveur FTP Windows/IIS, qui n'a pas de bits de permission Unix à faire
+correspondre. Installé à la volée sur le runner
 (`apt-get install lftp`), pas une dépendance persistante du projet — un outil ponctuel comme
 `sharp`/`png-to-ico` pour les favicons (`src/UMonsPlanning.Frontend/README.md`). Les actions
 officielles GitHub (`actions/checkout`, `actions/setup-dotnet`, `actions/setup-node`) restent
