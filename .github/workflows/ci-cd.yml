@@ -85,6 +85,13 @@ jobs:
           mkdir -p publish/wwwroot
           cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
 
+      - name: Seed the maintenance-mode marker file
+        # Must sit at the site root (next to web.config), not under wwwroot: this is what
+        # "Enter/Leave maintenance mode" below renames to/from app_offline.htm, and what ANCM
+        # watches for at the root to take the app offline and release its file locks (see
+        # docs/adr/0010). Placing it under wwwroot instead silently no-ops that toggle forever.
+        run: cp deploy/_app_offline.htm publish/_app_offline.htm
+
       - name: Install lftp
         run: sudo apt-get update -y && sudo apt-get install -y lftp
 
@@ -175,6 +182,13 @@ jobs:
         run: |
           mkdir -p publish/wwwroot
           cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
+
+      - name: Seed the maintenance-mode marker file
+        # Must sit at the site root (next to web.config), not under wwwroot: this is what
+        # "Enter/Leave maintenance mode" below renames to/from app_offline.htm, and what ANCM
+        # watches for at the root to take the app offline and release its file locks (see
+        # docs/adr/0010). Placing it under wwwroot instead silently no-ops that toggle forever.
+        run: cp deploy/_app_offline.htm publish/_app_offline.htm
 
       - name: Install lftp
         run: sudo apt-get update -y && sudo apt-get install -y lftp
