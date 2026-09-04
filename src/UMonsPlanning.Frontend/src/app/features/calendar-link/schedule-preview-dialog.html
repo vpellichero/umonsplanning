@@ -1,0 +1,103 @@
+<dialog
+  #dialog
+  class="m-4 w-full max-w-2xl rounded-card p-0 backdrop:bg-slate-900/50 sm:m-auto"
+  aria-labelledby="preview-title"
+  (click)="$event.target === dialog && close()"
+>
+  <div class="flex max-h-[85vh] flex-col">
+    <header class="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6">
+      <h2 id="preview-title" class="text-lg font-semibold text-slate-900">
+        Aperçu — {{ weekLabel() }}
+      </h2>
+      <button
+        type="button"
+        class="rounded-full p-3 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+        (click)="close()"
+      >
+        <span class="sr-only">Fermer l'aperçu</span>
+        <span aria-hidden="true">&#10005;</span>
+      </button>
+    </header>
+
+    <div class="overflow-auto p-4 sm:p-6">
+      @if (days().length === 0) {
+        <p class="text-slate-600">Aucun cours cette semaine-là.</p>
+      } @else {
+        <div class="space-y-6">
+          @for (day of days(); track day.label) {
+            <section>
+              <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                {{ day.label }}
+              </h3>
+              <ul class="space-y-2">
+                @for (event of day.events; track event.uid) {
+                  <li
+                    class="overflow-hidden rounded-card border-l-4 text-sm"
+                    [class.border-brand-600]="event.status !== 'CANCELLED'"
+                    [class.bg-brand-50]="event.status !== 'CANCELLED'"
+                    [class.border-cancelled-500]="event.status === 'CANCELLED'"
+                    [class.bg-cancelled-50]="event.status === 'CANCELLED'"
+                  >
+                    <button
+                      type="button"
+                      class="flex w-full cursor-pointer items-start gap-3 p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500"
+                      [attr.aria-expanded]="expandedUids().has(event.uid)"
+                      [attr.aria-controls]="'event-description-' + event.uid"
+                      (click)="toggleExpanded(event.uid)"
+                    >
+                      <div class="w-20 shrink-0 font-medium text-slate-700 sm:w-28">
+                        {{ event.start.getHours() }}h{{ event.start.getMinutes().toString().padStart(2, '0') }}
+                        – {{ event.end.getHours() }}h{{ event.end.getMinutes().toString().padStart(2, '0') }}
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p
+                          class="font-semibold text-slate-900"
+                          [class.line-through]="event.status === 'CANCELLED'"
+                        >
+                          {{ event.summary }}
+                        </p>
+                        @if (event.location) {
+                          <p class="text-slate-600">{{ event.location }}</p>
+                        }
+                      </div>
+                      @if (event.status === 'CANCELLED') {
+                        <span
+                          class="shrink-0 rounded-full bg-cancelled-50 px-2 py-0.5 text-xs font-medium text-cancelled-500"
+                        >
+                          Annulé
+                        </span>
+                      }
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        class="size-4 shrink-0 self-center text-slate-400 transition-transform"
+                        [class.rotate-180]="expandedUids().has(event.uid)"
+                        aria-hidden="true"
+                      >
+                        <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                    @if (expandedUids().has(event.uid)) {
+                      <div
+                        [id]="'event-description-' + event.uid"
+                        class="border-t border-black/5 px-3 pb-3 pt-2 text-slate-600"
+                      >
+                        @if (event.description) {
+                          <p class="whitespace-pre-line">{{ event.description }}</p>
+                        } @else {
+                          <p>Aucun détail supplémentaire.</p>
+                        }
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</dialog>

@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+
+# Backend runtime cache (docs/ai/backend-dotnet.md — never committed, regenerated on demand)
+src/UMonsPlanning.Backend/App_Data/
+
+# Local secrets (docs/ai/securite-rgpd.md §3 — .env.example is the only committed reference)
+.env
+.env.*
+!.env.example
+
+# Frontend
+src/UMonsPlanning.Frontend/node_modules/
+src/UMonsPlanning.Frontend/dist/
+src/UMonsPlanning.Frontend/.angular/

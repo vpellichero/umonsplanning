@@ -1,0 +1,54 @@
+<section class="text-center">
+  <img
+    ngSrc="logo-hero.webp"
+    alt="UMonsPlanning"
+    width="200"
+    height="99"
+    priority
+    class="mx-auto"
+  >
+  <h1 class="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">
+    Votre horaire UMONS, toujours à jour dans votre calendrier
+  </h1>
+  <p class="mx-auto mt-4 max-w-xl text-lg text-slate-600">
+    UMonsPlanning génère un lien à ajouter une fois dans Google Calendar, Outlook ou Apple
+    Calendar : votre horaire de cours s'y met ensuite à jour tout seul, sans rien réimporter.
+  </p>
+</section>
+
+<section class="mt-12" aria-labelledby="how-it-works-title">
+  <h2 id="how-it-works-title" class="text-xl font-semibold text-slate-900">Comment ça marche ?</h2>
+  <ol class="mt-4 grid gap-4 sm:grid-cols-3 sm:gap-6">
+    <li class="rounded-card border border-slate-200 bg-white p-4">
+      <p class="font-semibold text-brand-600">1. Choisissez</p>
+      <p class="mt-1 text-sm text-slate-600">Votre formation, et votre section si nécessaire.</p>
+    </li>
+    <li class="rounded-card border border-slate-200 bg-white p-4">
+      <p class="font-semibold text-brand-600">2. Générez le lien</p>
+      <p class="mt-1 text-sm text-slate-600">
+        Un lien unique est créé pour votre choix — testez-le si vous voulez voir à quoi
+        ressemble votre semaine avant de l'ajouter.
+      </p>
+    </li>
+    <li class="rounded-card border border-slate-200 bg-white p-4">
+      <p class="font-semibold text-brand-600">3. Ajoutez-le une fois</p>
+      <p class="mt-1 text-sm text-slate-600">
+        Collez-le dans « Ajouter un calendrier par URL » de votre application de calendrier.
+        Besoin d'aide ?
+        <a routerLink="/aide" class="font-medium text-brand-600 hover:underline">Voir le guide par application</a>.
+      </p>
+    </li>
+  </ol>
+</section>
+
+<section class="mt-12 text-center">
+  <button
+    type="button"
+    class="w-full rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:w-auto"
+    (click)="openCalendarLinkDialog()"
+  >
+    Générer mon lien de calendrier
+  </button>
+</section>
+
+<app-calendar-link-dialog />

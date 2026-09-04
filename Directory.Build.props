@@ -1,0 +1,18 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Kept OFF deliberately: Slug.From (UMonsPlanning.Pronote.Internal) relies on
+         string.Normalize(FormD) to strip diacritics for stable, URL-safe resource ids.
+         Under invariant globalization, Normalize silently no-ops on this runtime, corrupting
+         slugs (e.g. "interprétation" keeps its "é" instead of becoming "interpretation") — caught
+         by SlugTests.From_RemovesDiacriticsAndPunctuation. See docs/adr/0002-no-invariant-globalization.md. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

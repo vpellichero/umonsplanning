@@ -1,0 +1,825 @@
+{
+  "info": {
+    "_postman_id": "3f9a1c62-5d2e-4a1b-9a11-umonspronote01",
+    "name": "UMONS · PRONOTE (API source)",
+    "description": "Séquence complète d'appels à l'API non documentée de l'espace invité PRONOTE de l'Université de Mons (https://hplanning2026.umons.ac.be/invite).\n\n**Lancer la collection dans l'ordre (Collection Runner), ou exécuter les requêtes 1 à 7 de haut en bas.** Le protocole est à état : le numéro d'ordre est un compteur chiffré partagé, une session doit être ouverte, et les identifiants de ressources (N) sont régénérés à chaque session.\n\nRéglages : variables `formationLabel`, `sectionLabel` (facultatif) et `week`.\n\n---\n\n**Les variables se remplissent toutes seules.** Seules `formationLabel`, `sectionLabel` et `week` sont à régler. `no`, `session`, `sessionIvHex`, `uuid`, `ordre` et les identifiants `…N/G/L` sont calculés par les scripts au moment de l'envoi ; elles apparaissent vides tant qu'aucune requête n'a tourné, c'est normal.\n\n**Repère de contrôle** : à la requête 2, `no` vaut toujours `3fa959b13967e0ef176069e01e23c8d7` (ordre 1 chiffré avec un IV nul). Si la console affiche autre chose, le compteur d'ordre n'est pas reparti de 1.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1 · Ouvrir une session (GET /invite?fd=1)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const CryptoJS = require('crypto-js');",
+              "const html = pm.response.text() || '';",
+              "",
+              "// PRONOTE filtre les navigateurs côté serveur : sans ?fd=1 on reçoit une page d'avertissement.",
+              "if (html.indexOf('invite?fd=1') !== -1 && html.indexOf('Start') === -1) {",
+              "    throw new Error('PRONOTE a renvoyé la page « navigateur non supporté » : ajoutez ?fd=1 à l\\'URL de cette requête.');",
+              "}",
+              "",
+              "// Le HTML se termine par :  Start({\"a\":2,\"b\":0,\"c\":\"DIPLOME.EDT\",\"i\":<numéro de session>})",
+              "let session = null;",
+              "",
+              "const start = html.match(/Start\\s*\\(\\s*(\\{[\\s\\S]{0,400}?\\})\\s*\\)/);",
+              "if (start) { try { session = JSON.parse(start[1]).i; } catch (e) { /* format inattendu */ } }",
+              "if (!session) { const m = html.match(/[\"']?i[\"']?\\s*:\\s*(\\d{4,})/);     if (m) session = Number(m[1]); }",
+              "if (!session) { const m = html.match(/sendLogFailStart\\s*\\(\\s*(\\d{4,})/); if (m) session = Number(m[1]); }",
+              "",
+              "if (!session) {",
+              "    console.log('--- diagnostic ---');",
+              "    console.log('URL      :', pm.request.url.toString());",
+              "    console.log('Statut   :', pm.response.code, pm.response.status);",
+              "    console.log('Encodage :', pm.response.headers.get('Content-Encoding'));",
+              "    console.log('Taille   :', html.length);",
+              "    console.log('Corps    :', html.substring(0, 600));",
+              "    throw new Error('Numéro de session introuvable. Vérifier : (1) ?fd=1 présent ; (2) la variable baseUrl ; (3) le suivi automatique des redirections ; (4) le corps affiché ci-dessus.');",
+              "}",
+              "",
+              "pm.test('Session ouverte', function () { pm.expect(session).to.be.a('number'); });",
+              "pm.collectionVariables.set('session', String(session));",
+              "",
+              "// IV AES de session : 16 octets aléatoires, transmis en base64 dans FonctionParametres.",
+              "const iv = CryptoJS.lib.WordArray.random(16);",
+              "pm.collectionVariables.set('sessionIvHex', iv.toString(CryptoJS.enc.Hex));",
+              "pm.collectionVariables.set('uuid', CryptoJS.enc.Base64.stringify(iv));",
+              "pm.collectionVariables.set('ordre', 1);",
+              "console.log('session =', session);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          },
+          {
+            "key": "Accept",
+            "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/invite?fd=1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "invite"
+          ],
+          "query": [
+            {
+              "key": "fd",
+              "value": "1",
+              "description": "Contourne le filtrage de navigateur fait côté serveur par PRONOTE."
+            }
+          ]
+        },
+        "description": "Crée la session côté serveur et renvoie le HTML qui porte le numéro de session.\n\n**`?fd=1` est obligatoire hors navigateur** : PRONOTE inspecte l'User-Agent côté serveur et, s'il ne le reconnaît pas, renvoie une page « La consultation de cette page avec le navigateur utilisé n'est pas garantie » à la place de la page utile."
+      },
+      "response": []
+    },
+    {
+      "name": "2 · FonctionParametres (négocie l'IV)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ---------------------------------------------------------------------",
+              "// Calcule {{no}} : le numéro d'ordre chiffré. RIEN À SAISIR À LA MAIN.",
+              "// AES-128-CBC/PKCS7, clé = MD5(\"\"), texte clair = le numéro d'ordre décimal.",
+              "// ---------------------------------------------------------------------",
+              "const CryptoJS = (typeof require === 'function' ? require('crypto-js') : null)",
+              "    || (typeof globalThis !== 'undefined' ? globalThis.CryptoJS : null);",
+              "if (!CryptoJS) {",
+              "    throw new Error('crypto-js indisponible dans ce runtime Postman. Mettez Postman à jour, ou remplacez require(\\'crypto-js\\') par la variable globale CryptoJS.');",
+              "}",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "if (!Number.isFinite(ordre) || ordre < 1) {",
+              "    throw new Error('Variable \\'ordre\\' absente : lancez d\\'abord la requête 1 (elle ouvre la session et remet le compteur à 1).');",
+              "}",
+              "",
+              "const key = CryptoJS.MD5(CryptoJS.enc.Utf8.parse(''));",
+              "// Tout premier appel : l'IV de session n'est pas encore négocié -> 16 octets nuls.",
+              "const iv = CryptoJS.lib.WordArray.create([0, 0, 0, 0]);",
+              "",
+              "const no = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(String(ordre)), key,",
+              "        { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 })",
+              "    .ciphertext.toString(CryptoJS.enc.Hex);",
+              "",
+              "pm.collectionVariables.set('no', no);",
+              "console.log('ordre', ordre, '-> no =', no);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.Erreur) {",
+              "    throw new Error('PRONOTE : ' + body.Erreur.Titre +",
+              "        \" — session ou numéro d'ordre rejeté. Vérifier que 'session' part bien comme NOMBRE \" +",
+              "        '(pas entre guillemets dans le corps), puis relancer depuis la requête 1.');",
+              "}",
+              "const sig = body.dataSec && body.dataSec.Signature;",
+              "if (sig && sig.Erreur) { throw new Error('PRONOTE : ' + sig.MessageErreur); }",
+              "pm.test('Pas d\\'erreur PRONOTE', function () { pm.expect(body.dataSec).to.not.be.undefined; });",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "pm.collectionVariables.set('ordre', ordre + 2); // le serveur consomme n et répond avec n+1",
+              "// Paramètres utiles de la grille horaire",
+              "const g = pm.response.json().dataSec.data.parametreGeneral;",
+              "console.log('PremierLundi', g.PremierLundi.V, '| PlacesParJour', g.PlacesParJour, '| PlacesParHeure', g.PlacesParHeure);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {{session}},\n  \"no\": \"{{no}}\",\n  \"id\": \"FonctionParametres\",\n  \"dataSec\": {\n    \"data\": {\n      \"modeJeton\": false,\n      \"Uuid\": \"{{uuid}}\",\n      \"identifiantNav\": null,\n      \"ongletDemarrage\": \"{{ongletDemarrage}}\"\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appelfonction/{{espace}}/{{session}}/{{no}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appelfonction",
+            "{{espace}}",
+            "{{session}}",
+            "{{no}}"
+          ]
+        },
+        "description": "Premier appel. Le champ Uuid transmet l'IV AES en base64 (pas de RSA : le site est en HTTPS). À partir d'ici l'IV utilisé pour chiffrer le numéro d'ordre devient MD5(IV de session)."
+      },
+      "response": []
+    },
+    {
+      "name": "3 · DemandeParametreUtilisateur (ouvre les droits)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ---------------------------------------------------------------------",
+              "// Calcule {{no}} : le numéro d'ordre chiffré. RIEN À SAISIR À LA MAIN.",
+              "// AES-128-CBC/PKCS7, clé = MD5(\"\"), texte clair = le numéro d'ordre décimal.",
+              "// ---------------------------------------------------------------------",
+              "const CryptoJS = (typeof require === 'function' ? require('crypto-js') : null)",
+              "    || (typeof globalThis !== 'undefined' ? globalThis.CryptoJS : null);",
+              "if (!CryptoJS) {",
+              "    throw new Error('crypto-js indisponible dans ce runtime Postman. Mettez Postman à jour, ou remplacez require(\\'crypto-js\\') par la variable globale CryptoJS.');",
+              "}",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "if (!Number.isFinite(ordre) || ordre < 1) {",
+              "    throw new Error('Variable \\'ordre\\' absente : lancez d\\'abord la requête 1 (elle ouvre la session et remet le compteur à 1).');",
+              "}",
+              "",
+              "const sessionIvHex = pm.collectionVariables.get('sessionIvHex');",
+              "if (!sessionIvHex) {",
+              "    throw new Error('Variable \\'sessionIvHex\\' absente : lancez les requêtes dans l\\'ordre à partir de la 1.');",
+              "}",
+              "const key = CryptoJS.MD5(CryptoJS.enc.Utf8.parse(''));",
+              "// Après FonctionParametres, l'IV devient MD5(IV de session).",
+              "const iv = CryptoJS.MD5(CryptoJS.enc.Hex.parse(sessionIvHex));",
+              "",
+              "const no = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(String(ordre)), key,",
+              "        { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 })",
+              "    .ciphertext.toString(CryptoJS.enc.Hex);",
+              "",
+              "pm.collectionVariables.set('no', no);",
+              "console.log('ordre', ordre, '-> no =', no);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.Erreur) {",
+              "    throw new Error('PRONOTE : ' + body.Erreur.Titre +",
+              "        \" — session ou numéro d'ordre rejeté. Vérifier que 'session' part bien comme NOMBRE \" +",
+              "        '(pas entre guillemets dans le corps), puis relancer depuis la requête 1.');",
+              "}",
+              "const sig = body.dataSec && body.dataSec.Signature;",
+              "if (sig && sig.Erreur) { throw new Error('PRONOTE : ' + sig.MessageErreur); }",
+              "pm.test('Pas d\\'erreur PRONOTE', function () { pm.expect(body.dataSec).to.not.be.undefined; });",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "pm.collectionVariables.set('ordre', ordre + 2); // le serveur consomme n et répond avec n+1"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {{session}},\n  \"no\": \"{{no}}\",\n  \"id\": \"DemandeParametreUtilisateur\",\n  \"dataSec\": {\n    \"Signature\": {\n      \"Onglet\": \"\"\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appelfonction/{{espace}}/{{session}}/{{no}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appelfonction",
+            "{{espace}}",
+            "{{session}}",
+            "{{no}}"
+          ]
+        },
+        "description": "Appel INDISPENSABLE : sans lui, FonctionDomaineDePresence et FonctionEmploiDuTemps répondent « Vos droits sont insuffisants pour effectuer cette opération. »"
+      },
+      "response": []
+    },
+    {
+      "name": "4 · FonctionRenvoyerListeDeRessource (dropdown #1)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ---------------------------------------------------------------------",
+              "// Calcule {{no}} : le numéro d'ordre chiffré. RIEN À SAISIR À LA MAIN.",
+              "// AES-128-CBC/PKCS7, clé = MD5(\"\"), texte clair = le numéro d'ordre décimal.",
+              "// ---------------------------------------------------------------------",
+              "const CryptoJS = (typeof require === 'function' ? require('crypto-js') : null)",
+              "    || (typeof globalThis !== 'undefined' ? globalThis.CryptoJS : null);",
+              "if (!CryptoJS) {",
+              "    throw new Error('crypto-js indisponible dans ce runtime Postman. Mettez Postman à jour, ou remplacez require(\\'crypto-js\\') par la variable globale CryptoJS.');",
+              "}",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "if (!Number.isFinite(ordre) || ordre < 1) {",
+              "    throw new Error('Variable \\'ordre\\' absente : lancez d\\'abord la requête 1 (elle ouvre la session et remet le compteur à 1).');",
+              "}",
+              "",
+              "const sessionIvHex = pm.collectionVariables.get('sessionIvHex');",
+              "if (!sessionIvHex) {",
+              "    throw new Error('Variable \\'sessionIvHex\\' absente : lancez les requêtes dans l\\'ordre à partir de la 1.');",
+              "}",
+              "const key = CryptoJS.MD5(CryptoJS.enc.Utf8.parse(''));",
+              "// Après FonctionParametres, l'IV devient MD5(IV de session).",
+              "const iv = CryptoJS.MD5(CryptoJS.enc.Hex.parse(sessionIvHex));",
+              "",
+              "const no = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(String(ordre)), key,",
+              "        { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 })",
+              "    .ciphertext.toString(CryptoJS.enc.Hex);",
+              "",
+              "pm.collectionVariables.set('no', no);",
+              "console.log('ordre', ordre, '-> no =', no);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.Erreur) {",
+              "    throw new Error('PRONOTE : ' + body.Erreur.Titre +",
+              "        \" — session ou numéro d'ordre rejeté. Vérifier que 'session' part bien comme NOMBRE \" +",
+              "        '(pas entre guillemets dans le corps), puis relancer depuis la requête 1.');",
+              "}",
+              "const sig = body.dataSec && body.dataSec.Signature;",
+              "if (sig && sig.Erreur) { throw new Error('PRONOTE : ' + sig.MessageErreur); }",
+              "pm.test('Pas d\\'erreur PRONOTE', function () { pm.expect(body.dataSec).to.not.be.undefined; });",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "pm.collectionVariables.set('ordre', ordre + 2); // le serveur consomme n et répond avec n+1",
+              "const liste = pm.response.json().dataSec.data.ListeRessources.Liste;",
+              "console.log(liste.length + ' choix d\\'études');",
+              "const label = pm.collectionVariables.get('formationLabel');",
+              "const found = liste.find(function (r) { return r.L === label; });",
+              "pm.test('Choix d\\'études « ' + label + ' » trouvé', function () { pm.expect(found).to.not.be.undefined; });",
+              "pm.collectionVariables.set('formationN', found.N);",
+              "pm.collectionVariables.set('formationG', found.G);",
+              "pm.collectionVariables.set('formationL', found.L);",
+              "// ATTENTION : les identifiants N sont recalculés à chaque session, ils ne sont pas réutilisables."
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {{session}},\n  \"no\": \"{{no}}\",\n  \"id\": \"FonctionRenvoyerListeDeRessource\",\n  \"dataSec\": {\n    \"Signature\": {\n      \"Onglet\": \"{{onglet}}\"\n    },\n    \"data\": {\n      \"GenreRessource\": 1,\n      \"GenreRecherche\": 1,\n      \"AvecPublicationForcee\": false,\n      \"NomRessource\": \"*\",\n      \"PourEmail\": false,\n      \"PourRessource\": false,\n      \"filtresRessource\": []\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appelfonction/{{espace}}/{{session}}/{{no}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appelfonction",
+            "{{espace}}",
+            "{{session}}",
+            "{{no}}"
+          ]
+        },
+        "description": "Liste des choix d'études (NomRessource = \"*\" renvoie tout). C'est ici que l'on récupère l'identifiant N à placer dans Signature.listeRecherche."
+      },
+      "response": []
+    },
+    {
+      "name": "5 · FonctionListeDeTDEtOptionDuDiplome (dropdown #2)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ---------------------------------------------------------------------",
+              "// Calcule {{no}} : le numéro d'ordre chiffré. RIEN À SAISIR À LA MAIN.",
+              "// AES-128-CBC/PKCS7, clé = MD5(\"\"), texte clair = le numéro d'ordre décimal.",
+              "// ---------------------------------------------------------------------",
+              "const CryptoJS = (typeof require === 'function' ? require('crypto-js') : null)",
+              "    || (typeof globalThis !== 'undefined' ? globalThis.CryptoJS : null);",
+              "if (!CryptoJS) {",
+              "    throw new Error('crypto-js indisponible dans ce runtime Postman. Mettez Postman à jour, ou remplacez require(\\'crypto-js\\') par la variable globale CryptoJS.');",
+              "}",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "if (!Number.isFinite(ordre) || ordre < 1) {",
+              "    throw new Error('Variable \\'ordre\\' absente : lancez d\\'abord la requête 1 (elle ouvre la session et remet le compteur à 1).');",
+              "}",
+              "",
+              "const sessionIvHex = pm.collectionVariables.get('sessionIvHex');",
+              "if (!sessionIvHex) {",
+              "    throw new Error('Variable \\'sessionIvHex\\' absente : lancez les requêtes dans l\\'ordre à partir de la 1.');",
+              "}",
+              "const key = CryptoJS.MD5(CryptoJS.enc.Utf8.parse(''));",
+              "// Après FonctionParametres, l'IV devient MD5(IV de session).",
+              "const iv = CryptoJS.MD5(CryptoJS.enc.Hex.parse(sessionIvHex));",
+              "",
+              "const no = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(String(ordre)), key,",
+              "        { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 })",
+              "    .ciphertext.toString(CryptoJS.enc.Hex);",
+              "",
+              "pm.collectionVariables.set('no', no);",
+              "console.log('ordre', ordre, '-> no =', no);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.Erreur) {",
+              "    throw new Error('PRONOTE : ' + body.Erreur.Titre +",
+              "        \" — session ou numéro d'ordre rejeté. Vérifier que 'session' part bien comme NOMBRE \" +",
+              "        '(pas entre guillemets dans le corps), puis relancer depuis la requête 1.');",
+              "}",
+              "const sig = body.dataSec && body.dataSec.Signature;",
+              "if (sig && sig.Erreur) { throw new Error('PRONOTE : ' + sig.MessageErreur); }",
+              "pm.test('Pas d\\'erreur PRONOTE', function () { pm.expect(body.dataSec).to.not.be.undefined; });",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "pm.collectionVariables.set('ordre', ordre + 2); // le serveur consomme n et répond avec n+1",
+              "const v = pm.response.json().dataSec.data.listeRessources.V || [];",
+              "console.log('sous-choix : ' + v.map(function (x) { return x.L; }).join(' | '));",
+              "const wanted = pm.collectionVariables.get('sectionLabel');",
+              "const chosen = wanted ? v.find(function (x) { return x.L === wanted; }) : null;",
+              "const target = chosen || { N: pm.collectionVariables.get('formationN'), G: pm.collectionVariables.get('formationG'), L: pm.collectionVariables.get('formationL') };",
+              "pm.collectionVariables.set('targetN', target.N);",
+              "pm.collectionVariables.set('targetG', target.G);",
+              "pm.collectionVariables.set('targetL', target.L);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {{session}},\n  \"no\": \"{{no}}\",\n  \"id\": \"FonctionListeDeTDEtOptionDuDiplome\",\n  \"dataSec\": {\n    \"Signature\": {\n      \"Onglet\": \"{{onglet}}\",\n      \"listeRecherche\": [\n        {\n          \"N\": \"{{formationN}}\",\n          \"G\": {{formationG}},\n          \"L\": \"{{formationL}}\"\n        }\n      ]\n    },\n    \"data\": {\n      \"ModeRecherche\": 1,\n      \"sansListeNominative\": false\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appelfonction/{{espace}}/{{session}}/{{no}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appelfonction",
+            "{{espace}}",
+            "{{session}}",
+            "{{no}}"
+          ]
+        },
+        "description": "Sous-choix (TD / options) rattachés au choix d'études. Laisser sectionLabel vide pour rester sur le diplôme."
+      },
+      "response": []
+    },
+    {
+      "name": "6 · FonctionDomaineDePresence (semaines disponibles)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ---------------------------------------------------------------------",
+              "// Calcule {{no}} : le numéro d'ordre chiffré. RIEN À SAISIR À LA MAIN.",
+              "// AES-128-CBC/PKCS7, clé = MD5(\"\"), texte clair = le numéro d'ordre décimal.",
+              "// ---------------------------------------------------------------------",
+              "const CryptoJS = (typeof require === 'function' ? require('crypto-js') : null)",
+              "    || (typeof globalThis !== 'undefined' ? globalThis.CryptoJS : null);",
+              "if (!CryptoJS) {",
+              "    throw new Error('crypto-js indisponible dans ce runtime Postman. Mettez Postman à jour, ou remplacez require(\\'crypto-js\\') par la variable globale CryptoJS.');",
+              "}",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "if (!Number.isFinite(ordre) || ordre < 1) {",
+              "    throw new Error('Variable \\'ordre\\' absente : lancez d\\'abord la requête 1 (elle ouvre la session et remet le compteur à 1).');",
+              "}",
+              "",
+              "const sessionIvHex = pm.collectionVariables.get('sessionIvHex');",
+              "if (!sessionIvHex) {",
+              "    throw new Error('Variable \\'sessionIvHex\\' absente : lancez les requêtes dans l\\'ordre à partir de la 1.');",
+              "}",
+              "const key = CryptoJS.MD5(CryptoJS.enc.Utf8.parse(''));",
+              "// Après FonctionParametres, l'IV devient MD5(IV de session).",
+              "const iv = CryptoJS.MD5(CryptoJS.enc.Hex.parse(sessionIvHex));",
+              "",
+              "const no = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(String(ordre)), key,",
+              "        { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 })",
+              "    .ciphertext.toString(CryptoJS.enc.Hex);",
+              "",
+              "pm.collectionVariables.set('no', no);",
+              "console.log('ordre', ordre, '-> no =', no);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.Erreur) {",
+              "    throw new Error('PRONOTE : ' + body.Erreur.Titre +",
+              "        \" — session ou numéro d'ordre rejeté. Vérifier que 'session' part bien comme NOMBRE \" +",
+              "        '(pas entre guillemets dans le corps), puis relancer depuis la requête 1.');",
+              "}",
+              "const sig = body.dataSec && body.dataSec.Signature;",
+              "if (sig && sig.Erreur) { throw new Error('PRONOTE : ' + sig.MessageErreur); }",
+              "pm.test('Pas d\\'erreur PRONOTE', function () { pm.expect(body.dataSec).to.not.be.undefined; });",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "pm.collectionVariables.set('ordre', ordre + 2); // le serveur consomme n et répond avec n+1",
+              "const d = pm.response.json().dataSec.data;",
+              "console.log('semaines avec cours :', d.DomainePresence.V);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {{session}},\n  \"no\": \"{{no}}\",\n  \"id\": \"FonctionDomaineDePresence\",\n  \"dataSec\": {\n    \"Signature\": {\n      \"Onglet\": \"{{onglet}}\",\n      \"listeRecherche\": [\n        {\n          \"N\": \"{{targetN}}\",\n          \"G\": {{targetG}},\n          \"L\": \"{{targetL}}\"\n        }\n      ]\n    },\n    \"data\": {\n      \"FiltreRessources\": {\n        \"_T\": 26,\n        \"V\": \"[0,6..7]\"\n      },\n      \"AvecCalendrier\": false\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appelfonction/{{espace}}/{{session}}/{{no}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appelfonction",
+            "{{espace}}",
+            "{{session}}",
+            "{{no}}"
+          ]
+        },
+        "description": "Renvoie les semaines où la ressource a cours (DomainePresence) et les semaines consultables."
+      },
+      "response": []
+    },
+    {
+      "name": "7 · FonctionEmploiDuTemps (une semaine)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ---------------------------------------------------------------------",
+              "// Calcule {{no}} : le numéro d'ordre chiffré. RIEN À SAISIR À LA MAIN.",
+              "// AES-128-CBC/PKCS7, clé = MD5(\"\"), texte clair = le numéro d'ordre décimal.",
+              "// ---------------------------------------------------------------------",
+              "const CryptoJS = (typeof require === 'function' ? require('crypto-js') : null)",
+              "    || (typeof globalThis !== 'undefined' ? globalThis.CryptoJS : null);",
+              "if (!CryptoJS) {",
+              "    throw new Error('crypto-js indisponible dans ce runtime Postman. Mettez Postman à jour, ou remplacez require(\\'crypto-js\\') par la variable globale CryptoJS.');",
+              "}",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "if (!Number.isFinite(ordre) || ordre < 1) {",
+              "    throw new Error('Variable \\'ordre\\' absente : lancez d\\'abord la requête 1 (elle ouvre la session et remet le compteur à 1).');",
+              "}",
+              "",
+              "const sessionIvHex = pm.collectionVariables.get('sessionIvHex');",
+              "if (!sessionIvHex) {",
+              "    throw new Error('Variable \\'sessionIvHex\\' absente : lancez les requêtes dans l\\'ordre à partir de la 1.');",
+              "}",
+              "const key = CryptoJS.MD5(CryptoJS.enc.Utf8.parse(''));",
+              "// Après FonctionParametres, l'IV devient MD5(IV de session).",
+              "const iv = CryptoJS.MD5(CryptoJS.enc.Hex.parse(sessionIvHex));",
+              "",
+              "const no = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(String(ordre)), key,",
+              "        { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 })",
+              "    .ciphertext.toString(CryptoJS.enc.Hex);",
+              "",
+              "pm.collectionVariables.set('no', no);",
+              "console.log('ordre', ordre, '-> no =', no);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.Erreur) {",
+              "    throw new Error('PRONOTE : ' + body.Erreur.Titre +",
+              "        \" — session ou numéro d'ordre rejeté. Vérifier que 'session' part bien comme NOMBRE \" +",
+              "        '(pas entre guillemets dans le corps), puis relancer depuis la requête 1.');",
+              "}",
+              "const sig = body.dataSec && body.dataSec.Signature;",
+              "if (sig && sig.Erreur) { throw new Error('PRONOTE : ' + sig.MessageErreur); }",
+              "pm.test('Pas d\\'erreur PRONOTE', function () { pm.expect(body.dataSec).to.not.be.undefined; });",
+              "",
+              "const ordre = Number(pm.collectionVariables.get('ordre'));",
+              "pm.collectionVariables.set('ordre', ordre + 2); // le serveur consomme n et répond avec n+1",
+              "// Décodage lisible : place = jour * PlacesParJour + place du jour ; place 0 = 08h00 ; 1 place = 15 min.",
+              "const PLACES_PAR_JOUR = 68, MINUTES = 15, DEBUT = 8 * 60;",
+              "const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];",
+              "const cours = pm.response.json().dataSec.data.ListeCours || [];",
+              "pm.test('Au moins un cours', function () { pm.expect(cours.length).to.be.above(0); });",
+              "function hhmm(m) { return ('0' + Math.floor(m / 60)).slice(-2) + 'h' + ('0' + (m % 60)).slice(-2); }",
+              "cours.map(function (c) {",
+              "    const jour = Math.floor(c.p / PLACES_PAR_JOUR);",
+              "    const debut = DEBUT + (c.p % PLACES_PAR_JOUR) * MINUTES;",
+              "    const matiere = (c.listeC.find(function (z) { return z.G === 0; }) || {}).C;",
+              "    const salles = (c.listeC.find(function (z) { return z.G === 3; }) || {}).C || [];",
+              "    return { jour: jour, t: debut, txt: JOURS[jour] + ' ' + hhmm(debut) + '-' + hhmm(debut + c.d * MINUTES) +",
+              "             '  ' + (matiere ? matiere.L : '?') + '  [' + salles.map(function (s) { return s.L; }).join(', ') + ']' };",
+              "}).sort(function (a, b) { return a.jour - b.jour || a.t - b.t; })",
+              "  .forEach(function (x) { console.log(x.txt); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+          },
+          {
+            "key": "Accept-Encoding",
+            "value": "gzip, deflate"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session\": {{session}},\n  \"no\": \"{{no}}\",\n  \"id\": \"FonctionEmploiDuTemps\",\n  \"dataSec\": {\n    \"Signature\": {\n      \"Onglet\": \"{{onglet}}\",\n      \"listeRecherche\": [\n        {\n          \"N\": \"{{targetN}}\",\n          \"G\": {{targetG}},\n          \"L\": \"{{targetL}}\"\n        }\n      ]\n    },\n    \"data\": {\n      \"GenrePeriodeEDT\": 2,\n      \"GenreAffichageEDT\": 0,\n      \"FiltreRessources\": {\n        \"_T\": 26,\n        \"V\": \"[0,6..7]\"\n      },\n      \"AvecIndisponibilites\": true,\n      \"AvecDomaineCours\": true,\n      \"AvecDomainePere\": false,\n      \"filterPlagesHoraires\": false,\n      \"ignorerCoursAnnules\": false,\n      \"avecInfosAppel\": false,\n      \"Domaine\": {\n        \"_T\": 8,\n        \"V\": \"[{{week}}]\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appelfonction/{{espace}}/{{session}}/{{no}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appelfonction",
+            "{{espace}}",
+            "{{session}}",
+            "{{no}}"
+          ]
+        },
+        "description": "Emploi du temps de la semaine demandée. Domaine._T = 8 (ensemble de semaines), V = \"[n]\" où n est le numéro de semaine PRONOTE (1 = semaine du PremierLundi)."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://hplanning2026.umons.ac.be"
+    },
+    {
+      "key": "espace",
+      "value": "2",
+      "description": "2 = espace invité"
+    },
+    {
+      "key": "ongletDemarrage",
+      "value": "DIPLOME.EDT"
+    },
+    {
+      "key": "onglet",
+      "value": "DIPLOME.EDT.EDT_GRILLE"
+    },
+    {
+      "key": "formationLabel",
+      "value": ".BAB3 - Traduction et interprétation"
+    },
+    {
+      "key": "sectionLabel",
+      "value": ""
+    },
+    {
+      "key": "week",
+      "value": "3",
+      "description": "Numéro de semaine PRONOTE (1 = semaine du 07/09/2026)"
+    },
+    {
+      "key": "session",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "sessionIvHex",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "uuid",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "ordre",
+      "value": "1",
+      "description": "Compteur d'ordre PRONOTE. Remis à 1 par la requête 1, +2 après chaque appel réussi."
+    },
+    {
+      "key": "no",
+      "value": "",
+      "description": "Calculée automatiquement par le script de pré-requête de chaque appel. Ne rien saisir : la valeur change à chaque requête."
+    },
+    {
+      "key": "formationN",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "formationG",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "formationL",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "targetN",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "targetG",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    },
+    {
+      "key": "targetL",
+      "value": "",
+      "description": "Renseignée automatiquement par les scripts. Ne rien saisir."
+    }
+  ]
+}

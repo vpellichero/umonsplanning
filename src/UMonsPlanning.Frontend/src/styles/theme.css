@@ -1,0 +1,19 @@
+/* Design tokens centralisés (docs/ai/frontend-ui.md §2). Toute couleur/rayon/espacement
+   réutilisé dans un template doit passer par un token défini ici, pas par une valeur arbitraire. */
+@theme {
+  --color-brand-50: #fef1f4;
+  --color-brand-100: #fcdee6;
+  --color-brand-200: #fabdcd;
+  --color-brand-300: #f68eaa;
+  --color-brand-400: #f1557f;
+  --color-brand-500: #ed1d54;
+  --color-brand-600: #b30f3a;
+  --color-brand-700: #8e0b2e;
+  --color-brand-800: #710925;
+  --color-brand-900: #55071c;
+
+  --color-cancelled-50: #fef2f2;
+  --color-cancelled-500: #ef4444;
+
+  --radius-card: 0.75rem;
+}

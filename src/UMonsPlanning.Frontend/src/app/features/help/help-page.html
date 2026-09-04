@@ -1,0 +1,33 @@
+<section>
+  <h1 class="text-2xl font-bold text-slate-900 sm:text-3xl">Aide : ajouter votre lien de calendrier</h1>
+  <p class="mt-4 text-slate-600">
+    Une fois votre lien généré depuis
+    <a routerLink="/" class="font-medium text-brand-600 hover:underline">la page d'accueil</a>,
+    vous n'avez besoin de l'ajouter qu'une seule fois dans votre application de calendrier, via
+    son option « S'abonner à un calendrier par URL » (le nom exact varie d'une application à
+    l'autre). Voici la marche à suivre pour les applications les plus courantes :
+  </p>
+</section>
+
+<section class="mt-8">
+  <ul class="space-y-4">
+    @for (link of links; track link.name) {
+      <li class="rounded-card border border-slate-200 bg-white p-4">
+        <h2 class="font-semibold text-slate-900">{{ link.name }}</h2>
+        <p class="mt-1 text-sm text-slate-600">{{ link.instructions }}</p>
+        <a
+          [href]="link.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-2 inline-block text-sm font-medium text-brand-600 hover:underline"
+        >
+          Guide officiel ↗
+        </a>
+      </li>
+    }
+  </ul>
+</section>
+
+<section class="mt-8">
+  <a routerLink="/" class="text-sm font-medium text-brand-600 hover:underline">← Retour à l'accueil</a>
+</section>

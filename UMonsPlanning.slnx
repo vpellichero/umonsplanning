@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UMonsPlanning.Backend/UMonsPlanning.Backend.csproj" />
+    <Project Path="src/UMonsPlanning.Pronote/UMonsPlanning.Pronote.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UMonsPlanning.Backend.Tests/UMonsPlanning.Backend.Tests.csproj" />
+    <Project Path="tests/UMonsPlanning.Pronote.Tests/UMonsPlanning.Pronote.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/UMonsPlanning.Cli/UMonsPlanning.Cli.csproj" />
+  </Folder>
+</Solution>

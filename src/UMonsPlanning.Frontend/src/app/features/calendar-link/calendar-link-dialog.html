@@ -1,0 +1,209 @@
+<dialog
+  #dialog
+  class="m-4 w-full max-w-lg rounded-card p-0 backdrop:bg-slate-900/50 sm:m-auto"
+  aria-labelledby="calendar-link-title"
+  (click)="$event.target === dialog && close()"
+>
+  <div class="flex max-h-[85vh] flex-col">
+    <header class="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6">
+      <h2 id="calendar-link-title" class="text-lg font-semibold text-slate-900">
+        Générer mon lien de calendrier
+      </h2>
+      <button
+        type="button"
+        class="rounded-full p-3 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+        (click)="close()"
+      >
+        <span class="sr-only">Fermer</span>
+        <span aria-hidden="true">&#10005;</span>
+      </button>
+    </header>
+
+    <form class="flex flex-col gap-4 overflow-auto px-4 py-4 sm:px-6" (submit)="$event.preventDefault()">
+      <div>
+        <label for="formation" class="mb-1 block text-sm font-medium text-slate-700">Choix d'études</label>
+        <select
+          id="formation"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+          [disabled]="catalog.formations.isLoading()"
+          (change)="onFormationChange($any($event.target).value)"
+        >
+          <option value="">— Sélectionner —</option>
+          @for (formation of catalog.formations.value(); track formation.id) {
+            <option [value]="formation.id">{{ formation.label }}</option>
+          }
+        </select>
+      </div>
+
+      @if (formationId() && catalog.sections.value().length > 0) {
+        <div>
+          <label for="section" class="mb-1 block text-sm font-medium text-slate-700">
+            Sous-choix (optionnel)
+          </label>
+          <select
+            id="section"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+            [disabled]="catalog.sections.isLoading()"
+            (change)="sectionId.set($any($event.target).value || null)"
+          >
+            <option value="">— Toutes les sections —</option>
+            @for (section of catalog.sections.value(); track section.id) {
+              <option [value]="section.id">{{ section.label }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <fieldset class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <legend class="mb-1 text-sm font-medium text-slate-700">Période (optionnel)</legend>
+        <div>
+          <label for="start-date" class="mb-1 block text-xs text-slate-600">Du</label>
+          <div class="relative">
+            <input
+              id="start-date"
+              #startDateInput
+              type="date"
+              [attr.max]="endDate() || null"
+              class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 [&::-webkit-calendar-picker-indicator]:opacity-0"
+              [value]="startDate()"
+              (change)="startDate.set($any($event.target).value)"
+            />
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 flex items-center px-2 text-slate-500 hover:text-slate-900"
+              aria-label="Ouvrir le sélecteur de date de début"
+              (click)="openDatePicker(startDateInput)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-5" aria-hidden="true">
+                <rect x="3" y="4.5" width="18" height="16" rx="2" />
+                <path d="M3 9.5h18M8 3v3M16 3v3" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label for="end-date" class="mb-1 block text-xs text-slate-600">Au</label>
+          <div class="relative">
+            <input
+              id="end-date"
+              #endDateInput
+              type="date"
+              [attr.min]="startDate() || null"
+              class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 [&::-webkit-calendar-picker-indicator]:opacity-0"
+              [value]="endDate()"
+              (change)="endDate.set($any($event.target).value)"
+            />
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 flex items-center px-2 text-slate-500 hover:text-slate-900"
+              aria-label="Ouvrir le sélecteur de date de fin"
+              (click)="openDatePicker(endDateInput)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-5" aria-hidden="true">
+                <rect x="3" y="4.5" width="18" height="16" rx="2" />
+                <path d="M3 9.5h18M8 3v3M16 3v3" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </fieldset>
+
+      <div>
+        <div class="flex items-center gap-2">
+          <span id="layout-label" class="text-sm font-medium text-slate-700">Un événement par jour</span>
+          <button
+            #layoutHelpButton
+            type="button"
+            aria-label="En savoir plus sur les modes de calendrier"
+            aria-describedby="layout-help"
+            [attr.aria-expanded]="layoutHelpVisible()"
+            class="rounded-full p-1.5 text-slate-400 hover:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+            (mouseenter)="showLayoutHelp()"
+            (mouseleave)="hideLayoutHelp()"
+            (focus)="showLayoutHelp()"
+            (blur)="hideLayoutHelp()"
+            (click)="toggleLayoutHelp()"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5M12 8v.01" stroke-linecap="round" />
+            </svg>
+          </button>
+          @if (layoutHelpVisible() && layoutHelpPosition(); as position) {
+            <div
+              id="layout-help"
+              role="tooltip"
+              class="fixed z-50 w-64 rounded-card border border-slate-200 bg-white p-3 text-sm text-slate-600 shadow-lg"
+              [style.top.px]="position.top"
+              [style.left.px]="position.left"
+            >
+              <p><strong>Un événement par cours</strong> (par défaut) : chaque cours apparaît comme une entrée distincte dans votre calendrier.</p>
+              <p class="mt-2">
+                <strong>Un événement par jour</strong> : un seul événement par journée ; le détail de
+                chaque cours (horaires, salle, type de cours) est listé dans sa description.
+              </p>
+            </div>
+          }
+          <button
+            id="layout-switch"
+            type="button"
+            role="switch"
+            aria-labelledby="layout-label"
+            [attr.aria-checked]="perDayLayout()"
+            class="ml-auto inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            [class.bg-brand-600]="perDayLayout()"
+            [class.bg-slate-300]="!perDayLayout()"
+            (click)="perDayLayout.set(!perDayLayout())"
+          >
+            <span
+              class="inline-block size-4 rounded-full bg-white transition-transform"
+              [class.translate-x-6]="perDayLayout()"
+              [class.translate-x-1]="!perDayLayout()"
+            ></span>
+          </button>
+        </div>
+      </div>
+
+      @if (generatedUrl()) {
+        <div>
+          <label for="generated-url" class="mb-1 block text-sm font-medium text-slate-700">
+            Lien à coller dans votre application de calendrier
+          </label>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="generated-url"
+              type="text"
+              readonly
+              class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+              [value]="generatedUrl()"
+            />
+            <button
+              type="button"
+              class="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              (click)="copyLink()"
+            >
+              {{ linkCopied() ? 'Copié !' : 'Copier' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (testError()) {
+        <p role="alert" class="text-sm text-cancelled-500">{{ testError() }}</p>
+      }
+    </form>
+
+    <footer class="flex justify-end border-t border-slate-200 px-4 py-4 sm:px-6">
+      <button
+        type="button"
+        class="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        [disabled]="!generatedUrl() || testing()"
+        (click)="testCalendar()"
+      >
+        {{ testing() ? 'Chargement…' : 'Tester votre calendrier' }}
+      </button>
+    </footer>
+  </div>
+</dialog>
+
+<app-schedule-preview-dialog [weekLabel]="previewWeekLabel()" [events]="previewEvents()" />
