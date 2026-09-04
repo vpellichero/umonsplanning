@@ -140,11 +140,15 @@ public static class ScheduleIcsBuilder
     //  Per-day layout: one VEVENT per day, courses listed in its description.
     // -----------------------------------------------------------------------
 
+    // Spans from the first course's start to the last course's end, rather than an all-day event:
+    // an all-day marker hides exactly the information (first/last class time) this layout exists
+    // to summarize.
     private static CalendarEvent BuildDayEvent(DayDto day, string title, CalDateTime stamp) => new()
     {
         Uid = $"{day.Date:yyyy-MM-dd}-{Slug.From(title)}@umonsplanning",
         Summary = title,
-        Start = new CalDateTime(day.Date.Year, day.Date.Month, day.Date.Day),
+        Start = ToCalDateTime(day.Courses.Min(c => c.Start)),
+        End = ToCalDateTime(day.Courses.Max(c => c.End)),
         DtStamp = stamp,
         Status = "CONFIRMED",
         Description = BuildDayDescription(day.Courses),
