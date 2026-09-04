@@ -114,7 +114,22 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --no-perms --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
+          # --ignore-time: the local files are freshly built on every run (fresh mtimes) even when
+          # their content is unchanged, so time-based comparison would re-upload everything every
+          # time; comparing by size only actually skips files that haven't changed since the last
+          # deploy, which is what makes this fast.
+          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm publish/ /; bye"
+          # Retried: right after app_offline.htm takes effect, IIS's in-process hosting can take a
+          # few seconds to release its lock on the app's own assemblies, which fails their transfer
+          # with FTP error 550 - retrying a few seconds later succeeds once the lock clears.
+          for attempt in 1 2 3; do
+            if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$MIRROR_CMD" "ftp://$FTP_HOST"; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
@@ -190,7 +205,22 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --no-perms --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
+          # --ignore-time: the local files are freshly built on every run (fresh mtimes) even when
+          # their content is unchanged, so time-based comparison would re-upload everything every
+          # time; comparing by size only actually skips files that haven't changed since the last
+          # deploy, which is what makes this fast.
+          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm publish/ /; bye"
+          # Retried: right after app_offline.htm takes effect, IIS's in-process hosting can take a
+          # few seconds to release its lock on the app's own assemblies, which fails their transfer
+          # with FTP error 550 - retrying a few seconds later succeeds once the lock clears.
+          for attempt in 1 2 3; do
+            if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$MIRROR_CMD" "ftp://$FTP_HOST"; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
