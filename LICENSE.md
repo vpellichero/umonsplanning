@@ -33,7 +33,7 @@ The licensor grants you an additional copyright license to distribute copies of 
 
 You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software. For example:
 
-> Required Notice: Copyright Vincent Pellichero (https://github.com/<GITHUB_REPOSITORY_PATH>)
+> Required Notice: Copyright Vincent Pellichero (https://github.com/vpellichero/umonsplanning)
 
 ## Changes and New Works License
 
@@ -94,5 +94,5 @@ The **licensor** is the individual or entity offering these terms, and the **sof
 In addition to the obligations above, if you distribute a modified version of this software (in
 whole or in part), you must include a prominent notice — in the modified software itself and in
 any accompanying documentation — stating that it is based on **UMonsPlanning**
-(<https://github.com/<GITHUB_REPOSITORY_PATH>>), with a working link back to that original
+(<https://github.com/vpellichero/umonsplanning>), with a working link back to that original
 repository. This requirement applies in addition to, not instead of, every other term above.
