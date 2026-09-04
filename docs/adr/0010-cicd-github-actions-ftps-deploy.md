@@ -54,6 +54,13 @@ publié localement (comportement miroir) — sans cette exclusion, la synchronis
 elle-même supprimé `app_offline.htm` en cours de déploiement, mettant fin à la maintenance avant la
 fin de l'envoi.
 
+Second cas limite constaté au tout premier déploiement réel : sur un serveur encore vide,
+`_app_offline.htm` n'existe pas encore côté FTP (rien n'y a jamais été envoyé), donc le renommer
+échoue (`550`). La bascule vérifie maintenant l'existence de `_app_offline.htm` avant de tenter le
+renommage ; s'il est absent (premier déploiement, ou fichier supprimé manuellement), le job continue
+sans bascule ni restauration — la synchronisation qui suit le dépose de toute façon pour la
+prochaine fois.
+
 **Vérification du certificat TLS assouplie, constatée en production, pas préventive** : le premier
 déploiement réel a échoué avec `Certificate verification: certificate common name doesn't match
 requested host name` — le certificat TLS du serveur mutualisé ne correspond pas au nom d'hôte
