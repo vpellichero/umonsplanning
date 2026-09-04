@@ -146,12 +146,40 @@ app.MapCatalogEndpoints();
 app.MapScheduleEndpoints();
 app.MapStatsEndpoints();
 
-// Serves the Angular app for every route it owns client-side (e.g. /aide) accessed directly ;
-// only reached when no API/Scalar/OpenAPI endpoint above already matched. The regex excludes
-// "api/..." explicitly: without it, a request with the wrong HTTP verb (e.g. HEAD on /api/health,
-// as a monitoring probe would send) falls through to this route-agnostic fallback and gets a
-// misleading 200 with the SPA's HTML instead of an honest 404.
-app.MapFallbackToFile("{*path:regex(^(?!api/).*$):nonfile}", "index.html");
+// Serves every prerendered Angular route directly from its own wwwroot/<route>/index.html (e.g.
+// /aide) when accessed directly, and returns a real HTTP 404 - the styled 404 page's HTML, but
+// with the actual status code - for anything else. Deliberately checks the physical file instead
+// of relying on UseDefaultFiles' directory-matching for a path with no trailing slash, so the
+// behavior for "/aide" and "/aide/" is identical and doesn't depend on unstated middleware
+// semantics. Paths under "api/" never get the HTML 404 page: an unmatched API path (or, as
+// before, a monitoring probe sending HEAD on a known API path) gets a bare 404 instead.
+// The "nonfile" constraint keeps this fallback from ever matching a request whose last segment
+// looks like a real file (has a dot, e.g. "main-XXX.js", "robots.txt"): ASP.NET Core's endpoint
+// routing marks the request as matched to this fallback as soon as the pattern matches, and
+// UseStaticFiles/UseDefaultFiles above defer to whatever endpoint routing already selected instead
+// of serving the physical file themselves - without this constraint, every real asset request
+// would be swallowed by this handler instead of being served by the static file middleware.
+app.MapFallback("{*path:nonfile}", async (HttpContext context) =>
+{
+    string path = context.Request.Path.Value?.Trim('/') ?? string.Empty;
+    if (path.StartsWith("api/", StringComparison.Ordinal))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    IWebHostEnvironment environment = context.RequestServices.GetRequiredService<IWebHostEnvironment>();
+    string requestedFile = Path.Combine(environment.WebRootPath, path, "index.html");
+    string fileToServe = requestedFile;
+    if (!File.Exists(requestedFile))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        fileToServe = Path.Combine(environment.WebRootPath, "404", "index.html");
+    }
+
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.SendFileAsync(fileToServe);
+});
 
 app.Run();
 
