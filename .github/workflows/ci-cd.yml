@@ -128,7 +128,10 @@ jobs:
           # their content is unchanged, so time-based comparison would re-upload everything every
           # time; comparing by size only actually skips files that haven't changed since the last
           # deploy, which is what makes this fast.
-          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm publish/ /; bye"
+          # App_Data/ is excluded from both sync and --delete: it holds the catalog cache directory
+          # that IIS's app pool needs write access to (see CLAUDE.md §12) and never exists in the
+          # local publish/ output, so without this exclusion --delete would wipe it on every deploy.
+          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm --exclude-glob 'App_Data/' publish/ /; bye"
           # Retried: right after app_offline.htm takes effect, IIS's in-process hosting can take a
           # few seconds to release its lock on the app's own assemblies, which fails their transfer
           # with FTP error 550 - retrying a few seconds later succeeds once the lock clears.
@@ -230,7 +233,10 @@ jobs:
           # their content is unchanged, so time-based comparison would re-upload everything every
           # time; comparing by size only actually skips files that haven't changed since the last
           # deploy, which is what makes this fast.
-          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm publish/ /; bye"
+          # App_Data/ is excluded from both sync and --delete: it holds the catalog cache directory
+          # that IIS's app pool needs write access to (see CLAUDE.md §12) and never exists in the
+          # local publish/ output, so without this exclusion --delete would wipe it on every deploy.
+          MIRROR_CMD="$LFTP_OPTS mirror --reverse --delete --no-perms --ignore-time --verbose --exclude-glob app_offline.htm --exclude-glob 'App_Data/' publish/ /; bye"
           # Retried: right after app_offline.htm takes effect, IIS's in-process hosting can take a
           # few seconds to release its lock on the app's own assemblies, which fails their transfer
           # with FTP error 550 - retrying a few seconds later succeeds once the lock clears.
