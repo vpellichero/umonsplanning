@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, input, signal, viewChild } from '@angular/core';
 import type { PreviewEvent } from '../../core/models';
+import { formatBrusselsTime } from './brussels-time';
 import { groupEventsByDay } from './schedule-days';
 
 @Component({
@@ -30,6 +31,10 @@ export class SchedulePreviewDialog {
   close(): void {
     this.dialog().nativeElement.close();
   }
+
+  /** Courses always happen in Brussels — format their time in that timezone regardless of the
+   * viewer's own device timezone (see brussels-time.ts). */
+  protected readonly formatTime = formatBrusselsTime;
 
   protected toggleExpanded(uid: string): void {
     const next = new Set(this.expandedUids());

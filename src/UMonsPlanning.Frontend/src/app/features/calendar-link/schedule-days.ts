@@ -1,4 +1,5 @@
 import type { PreviewEvent } from '../../core/models';
+import { toBrusselsParts } from './brussels-time';
 
 const WEEKDAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -35,9 +36,11 @@ export function groupEventsByDay(events: readonly PreviewEvent[]): readonly Sche
 }
 
 function dateKey(date: Date): string {
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const { year, month, day } = toBrusselsParts(date);
+  return `${year}-${month}-${day}`;
 }
 
 function formatDayLabel(date: Date): string {
-  return `${WEEKDAY_LABELS[(date.getDay() + 6) % 7]} ${date.getDate()}/${date.getMonth() + 1}`;
+  const { weekday, day, month } = toBrusselsParts(date);
+  return `${WEEKDAY_LABELS[weekday]} ${day}/${month}`;
 }

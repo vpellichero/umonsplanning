@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { toBrusselsParts } from './brussels-time';
 import { parseIcsToEvents } from './ics-parser';
 
 const SAMPLE_ICS = [
@@ -60,13 +61,13 @@ describe('parseIcsToEvents', () => {
     expect(first.status).toBe('CONFIRMED');
   });
 
-  it('converts DTSTART/DTEND to the correct local wall-clock time', () => {
+  it('converts DTSTART/DTEND to the correct Brussels wall-clock time', () => {
     const [first] = parseIcsToEvents(SAMPLE_ICS);
 
-    expect(first.start.getHours()).toBe(9);
-    expect(first.start.getMinutes()).toBe(15);
-    expect(first.end.getHours()).toBe(10);
-    expect(first.end.getMinutes()).toBe(15);
+    // Asserted in Brussels time (not the runtime's local timezone, which is whatever machine or
+    // CI runner happens to execute this test) — every course is a Europe/Brussels wall-clock time.
+    expect(toBrusselsParts(first.start)).toMatchObject({ hour: 9, minute: 15 });
+    expect(toBrusselsParts(first.end)).toMatchObject({ hour: 10, minute: 15 });
   });
 
   it('reports a cancelled course as such', () => {

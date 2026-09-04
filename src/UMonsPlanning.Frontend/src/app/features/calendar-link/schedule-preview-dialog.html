@@ -46,8 +46,7 @@
                       (click)="toggleExpanded(event.uid)"
                     >
                       <div class="w-20 shrink-0 font-medium text-slate-700 sm:w-28">
-                        {{ event.start.getHours() }}h{{ event.start.getMinutes().toString().padStart(2, '0') }}
-                        – {{ event.end.getHours() }}h{{ event.end.getMinutes().toString().padStart(2, '0') }}
+                        {{ formatTime(event.start) }} – {{ formatTime(event.end) }}
                       </div>
                       <div class="min-w-0 flex-1">
                         <p
