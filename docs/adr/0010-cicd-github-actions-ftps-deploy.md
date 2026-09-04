@@ -54,6 +54,17 @@ publié localement (comportement miroir) — sans cette exclusion, la synchronis
 elle-même supprimé `app_offline.htm` en cours de déploiement, mettant fin à la maintenance avant la
 fin de l'envoi.
 
+**Vérification du certificat TLS assouplie, constatée en production, pas préventive** : le premier
+déploiement réel a échoué avec `Certificate verification: certificate common name doesn't match
+requested host name` — le certificat TLS du serveur mutualisé ne correspond pas au nom d'hôte
+`ftp.pellichero.be` (cas courant sur de l'hébergement mutualisé, où le certificat est souvent
+partagé entre plusieurs domaines clients). `set ssl:verify-certificate no` (lftp) et `security:
+loose` (FTP-Deploy-Action, README : « Allow connection even when the domain is not certificate »)
+désactivent la vérification du nom d'hôte tout en gardant le chiffrement TLS actif — protège contre
+l'écoute passive, pas contre une usurpation active de serveur. Accepté comme contrainte réelle de
+cet hébergement plutôt que contourné en silence ; à retirer si l'hébergeur régularise un jour son
+certificat.
+
 **CI** : un seul workflow (`.github/workflows/ci-cd.yml`). `build-backend` et `build-frontend`
 tournent sur tout `push` (n'importe quelle branche) et toute `pull_request` vers `main`/`develop` —
 c'est ce qui satisfait « compiler à chaque branche ». `deploy-test`/`deploy-prod` ne tournent que

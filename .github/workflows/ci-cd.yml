@@ -82,10 +82,10 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           sudo apt-get update -y && sudo apt-get install -y lftp
-          if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
+          if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
             echo "already_offline=true" >> "$GITHUB_OUTPUT"
           else
-            lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv _app_offline.htm app_offline.htm; bye" "ftp://$FTP_HOST"
+            lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; mv _app_offline.htm app_offline.htm; bye" "ftp://$FTP_HOST"
             echo "already_offline=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -96,6 +96,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
+          security: loose
           local-dir: publish/
           server-dir: /
           exclude: |
@@ -111,7 +112,7 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
 
   deploy-prod:
     needs: [build-backend, build-frontend]
@@ -152,10 +153,10 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           sudo apt-get update -y && sudo apt-get install -y lftp
-          if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
+          if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
             echo "already_offline=true" >> "$GITHUB_OUTPUT"
           else
-            lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv _app_offline.htm app_offline.htm; bye" "ftp://$FTP_HOST"
+            lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; mv _app_offline.htm app_offline.htm; bye" "ftp://$FTP_HOST"
             echo "already_offline=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -166,6 +167,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
+          security: loose
           local-dir: publish/
           server-dir: /
           exclude: |
@@ -181,4 +183,4 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; set ssl:verify-certificate no; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
