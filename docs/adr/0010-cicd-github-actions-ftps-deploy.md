@@ -44,7 +44,8 @@ suivant) — preuve concrète que le client Node de cette action gère mal une p
 de données de cet hébergeur, que `lftp` (bien plus ancien, bien plus éprouvé en interopérabilité
 FTP/FTPS) gère correctement. `lftp` est donc utilisé pour **toute** l'interaction FTP de ce
 workflow — la bascule de maintenance ET la synchronisation elle-même
-(`mirror --reverse --delete --no-perms --ignore-time --exclude-glob app_offline.htm publish/ /`),
+(`mirror --reverse --delete --no-perms --ignore-time --exclude-glob app_offline.htm --exclude-glob
+'App_Data/' publish/ /`),
 avec `mirror:parallel-transfer-count 1` fixé explicitement (pas de suppositions sur le nombre de
 connexions simultanées qu'un hébergement mutualisé tolère). `--no-perms` a lui aussi été ajouté
 après un échec réel : le premier essai transférait tous les fichiers avec succès puis échouait à la
@@ -111,6 +112,18 @@ aucun fichier distant de ce nom, puisque celui-ci vient d'être renommé en `app
 renommage échoue (`550`) — le site reste bloqué en maintenance jusqu'à intervention manuelle,
 malgré un job marqué « success ». La bascule de sortie supprime maintenant l'éventuelle copie
 parasite avant de renommer (`rm _app_offline.htm; mv app_offline.htm _app_offline.htm`).
+
+Cinquième cas limite, de nature différente des précédents (pas la bascule de maintenance, mais
+`--delete` lui-même) : `App_Data/catalog-cache` (cache fichier de `FormationCatalogCache`, voir
+`docs/ai/securite-rgpd.md` et le module Catalog du backend) n'existe pas dans `publish/` — `dotnet
+publish` ne produit que les binaires et assets de l'application, jamais un dossier de données créé
+au runtime. Sans exclusion, chaque déploiement supprimait donc silencieusement `App_Data` côté
+serveur, ainsi que les droits d'écriture explicitement accordés dessus au pool d'application IIS
+pour ce même dossier (voir `CLAUDE.md` §12 « Contraintes et pièges connus ») — un aller-retour de
+permissions à refaire manuellement après coup, sans que rien dans le job n'échoue pour le signaler.
+`App_Data/` est maintenant exclu de la synchronisation au même titre que `app_offline.htm`
+(`--exclude-glob 'App_Data/'`, le `/` final ciblant le dossier entier plutôt qu'un seul fichier de
+ce nom) : la synchronisation ne le voit plus du tout, ni pour le transférer ni pour le supprimer.
 
 **Vérification du certificat TLS assouplie, constatée en production, pas préventive** : le premier
 déploiement réel a échoué avec `Certificate verification: certificate common name doesn't match

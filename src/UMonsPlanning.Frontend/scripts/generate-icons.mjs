@@ -32,6 +32,13 @@ async function generateAppleTouchIcon() {
   await writeFile(publicPath('apple-touch-icon.png'), buffer);
 }
 
+/** Standalone 32x32 PNG favicon: browsers already pick this size out of favicon.ico, but some
+ * crawlers and SEO auditors only recognize an explicit `<link rel="icon" sizes="32x32">` PNG. */
+async function generateFavicon32() {
+  const buffer = await toPngBuffer(publicPath('icon.webp'), 32);
+  await writeFile(publicPath('favicon-32x32.png'), buffer);
+}
+
 async function generatePwaIcons() {
   for (const size of [192, 512]) {
     const buffer = await toPngBuffer(publicPath('icon.webp'), size);
@@ -126,6 +133,7 @@ async function recompressSourceLogos() {
 
 await recompressSourceLogos();
 await generateFavicon();
+await generateFavicon32();
 await generateAppleTouchIcon();
 await generatePwaIcons();
 await generateMaskableIcon();
