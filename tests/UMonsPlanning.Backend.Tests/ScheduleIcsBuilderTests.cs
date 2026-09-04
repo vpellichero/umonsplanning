@@ -134,6 +134,30 @@ public class ScheduleIcsBuilderTests
     }
 
     [Fact]
+    public void Build_PerDay_CustomTitleReplacesTheDefaultTitle()
+    {
+        var section = new ResourceDto("d3", "D3");
+        DayDto day = BuildDay(isCancelled: false);
+
+        string ics = ScheduleIcsBuilder.Build(
+            Formation, section, [day], IcsLayout.PerDay, FixedTimeProvider, title: "Cours BAB3");
+
+        ics.Should().Contain("SUMMARY:Cours BAB3");
+        ics.Should().NotContain("SUMMARY:.BAB3 - Traduction et interprétation / D3");
+    }
+
+    [Fact]
+    public void Build_PerDay_BlankCustomTitleFallsBackToTheDefaultTitle()
+    {
+        DayDto day = BuildDay(isCancelled: false);
+
+        string ics = ScheduleIcsBuilder.Build(
+            Formation, section: null, [day], IcsLayout.PerDay, FixedTimeProvider, title: "   ");
+
+        ics.Should().Contain("SUMMARY:.BAB3 - Traduction et interprétation");
+    }
+
+    [Fact]
     public void Build_PerDay_DescriptionFormatsEachCourseAsOneLine()
     {
         DayDto day = BuildDay(isCancelled: false);

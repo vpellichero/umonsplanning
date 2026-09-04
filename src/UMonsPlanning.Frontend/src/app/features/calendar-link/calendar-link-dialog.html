@@ -19,9 +19,14 @@
       </button>
     </header>
 
-    <form class="flex flex-col gap-4 overflow-auto px-4 py-4 sm:px-6" (submit)="$event.preventDefault()">
+    <form
+      class="flex flex-col gap-4 overflow-auto px-4 py-4 sm:px-6"
+      (submit)="$event.preventDefault()"
+    >
       <div>
-        <label for="formation" class="mb-1 block text-sm font-medium text-slate-700">Choix d'études</label>
+        <label for="formation" class="mb-1 block text-sm font-medium text-slate-700"
+          >Choix d'études</label
+        >
         <select
           id="formation"
           class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
@@ -44,7 +49,7 @@
             id="section"
             class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
             [disabled]="catalog.sections.isLoading()"
-            (change)="sectionId.set($any($event.target).value || null)"
+            (change)="onSectionChange($any($event.target).value)"
           >
             <option value="">— Toutes les sections —</option>
             @for (section of catalog.sections.value(); track section.id) {
@@ -74,7 +79,14 @@
               aria-label="Ouvrir le sélecteur de date de début"
               (click)="openDatePicker(startDateInput)"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-5" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                class="size-5"
+                aria-hidden="true"
+              >
                 <rect x="3" y="4.5" width="18" height="16" rx="2" />
                 <path d="M3 9.5h18M8 3v3M16 3v3" stroke-linecap="round" />
               </svg>
@@ -99,7 +111,14 @@
               aria-label="Ouvrir le sélecteur de date de fin"
               (click)="openDatePicker(endDateInput)"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-5" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                class="size-5"
+                aria-hidden="true"
+              >
                 <rect x="3" y="4.5" width="18" height="16" rx="2" />
                 <path d="M3 9.5h18M8 3v3M16 3v3" stroke-linecap="round" />
               </svg>
@@ -110,7 +129,9 @@
 
       <div>
         <div class="flex items-center gap-2">
-          <span id="layout-label" class="text-sm font-medium text-slate-700">Un événement par jour</span>
+          <span id="layout-label" class="text-sm font-medium text-slate-700"
+            >Un événement par jour</span
+          >
           <button
             #layoutHelpButton
             type="button"
@@ -124,7 +145,14 @@
             (blur)="hideLayoutHelp()"
             (click)="toggleLayoutHelp()"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              class="size-4"
+              aria-hidden="true"
+            >
               <circle cx="12" cy="12" r="9" />
               <path d="M12 11v5M12 8v.01" stroke-linecap="round" />
             </svg>
@@ -137,10 +165,13 @@
               [style.top.px]="position.top"
               [style.left.px]="position.left"
             >
-              <p><strong>Un événement par cours</strong> (par défaut) : chaque cours apparaît comme une entrée distincte dans votre calendrier.</p>
+              <p>
+                <strong>Un événement par cours</strong> (par défaut) : chaque cours apparaît comme
+                une entrée distincte dans votre calendrier.
+              </p>
               <p class="mt-2">
-                <strong>Un événement par jour</strong> : un seul événement par journée ; le détail de
-                chaque cours (horaires, salle, type de cours) est listé dans sa description.
+                <strong>Un événement par jour</strong> : un seul événement par journée ; le détail
+                de chaque cours (horaires, salle, type de cours) est listé dans sa description.
               </p>
             </div>
           }
@@ -163,6 +194,21 @@
           </button>
         </div>
       </div>
+
+      @if (perDayLayout()) {
+        <div>
+          <label for="event-title" class="mb-1 block text-sm font-medium text-slate-700">
+            Titre des événements
+          </label>
+          <input
+            id="event-title"
+            type="text"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+            [value]="perDayTitle()"
+            (input)="onTitleInput($any($event.target).value)"
+          />
+        </div>
+      }
 
       @if (generatedUrl()) {
         <div>

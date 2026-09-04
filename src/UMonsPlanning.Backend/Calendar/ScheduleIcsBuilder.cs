@@ -25,7 +25,8 @@ public static class ScheduleIcsBuilder
         ResourceDto? section,
         IReadOnlyList<DayDto> days,
         IcsLayout layout,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        string? title = null)
     {
         var calendar = new Ical.Net.Calendar { ProductId = ProductId };
         calendar.AddTimeZone(TimeZoneId);
@@ -37,10 +38,10 @@ public static class ScheduleIcsBuilder
         switch (layout)
         {
             case IcsLayout.PerDay:
-                string title = BuildEventTitle(formation, section);
+                string eventTitle = string.IsNullOrWhiteSpace(title) ? BuildEventTitle(formation, section) : title;
                 foreach (DayDto day in days)
                 {
-                    calendar.Events.Add(BuildDayEvent(day, title, stamp));
+                    calendar.Events.Add(BuildDayEvent(day, eventTitle, stamp));
                 }
 
                 break;

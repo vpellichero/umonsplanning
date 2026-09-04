@@ -15,6 +15,15 @@ public sealed class ScheduleIcsQueryValidator : AbstractValidator<ScheduleIcsQue
 
         RuleFor(x => x.Layout).IsInEnum();
 
+        RuleFor(x => x.Title)
+            .MaximumLength(200)
+            .WithMessage("Title must be 200 characters or fewer.");
+
+        RuleFor(x => x.Title)
+            .Empty()
+            .When(x => x.Layout != IcsLayout.PerDay)
+            .WithMessage("Title is only supported with the PerDay layout.");
+
         // Start alone means "from Start to the last available week" ; End alone means "from the
         // first available week to End" — see ScheduleEndpoints.ResolveWeeksAsync.
         RuleFor(x => x)
