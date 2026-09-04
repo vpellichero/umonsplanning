@@ -24,8 +24,9 @@ npm start          # ng serve — http://localhost:4200, proxy /api -> http://lo
 
 Le proxy de développement (`proxy.conf.json`) redirige `/api/*` vers `UMonsPlanning.Backend`
 lancé en local (`dotnet run --project ../UMonsPlanning.Backend`, port 5199 par défaut). En
-production, le backend est publié sous `/api` du même site (même origine) : voir
-`docs/adr/0004-mutualized-hosting-topology.md`.
+production, c'est le backend lui-même qui sert ce build (`wwwroot/`, assemblé par le pipeline de
+déploiement) : même origine dans les deux cas, voir
+`docs/adr/0009-backend-serves-frontend.md`.
 
 ## Build
 

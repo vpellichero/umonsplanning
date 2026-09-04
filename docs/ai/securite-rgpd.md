@@ -94,16 +94,28 @@ Si un secret est découvert commité, présent dans l'historique Git, exposé da
 
 ## 4. Transport et en-têtes
 
-- HTTPS partout, redirection HTTP → HTTPS, HSTS avec `preload` en production.
-- Content-Security-Policy stricte, **sans `unsafe-inline`** (nonces ou hachages pour les scripts et styles inline). Signaler explicitement si une bibliothèque tierce impose d'assouplir la CSP.
-- `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` restrictive, `Cross-Origin-Opener-Policy`.
-- CORS : liste explicite d'origines. Jamais `AllowAnyOrigin` combiné à `AllowCredentials`.
-- Cookies : `Secure`, `HttpOnly`, `SameSite=Lax` ou `Strict` ; jamais de donnée sensible dans un cookie.
-- Antiforgery sur toute requête modifiant l'état.
-- Limitation de débit sur les endpoints publics : non implémentée pour l'instant (trafic personnel
-  attendu très faible) — à ajouter (`Microsoft.AspNetCore.RateLimiting`, natif) si l'API devient
-  plus visible, en particulier pour protéger la session PRONOTE partagée d'un usage excessif.
-  Protection anti-bot : non applicable, aucun formulaire d'écriture public.
+- HTTPS partout, redirection HTTP → HTTPS (`UseHttpsRedirection`), HSTS en production
+  (`UseHsts`, hors `Development`) — en place depuis `docs/adr/0009-backend-serves-frontend.md`.
+- `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy` restrictive (caméra/micro/géolocalisation/paiement refusés, aucun n'étant
+  utilisé), `Cross-Origin-Opener-Policy: same-origin` — en place (ADR 0009).
+- Content-Security-Policy stricte, **sans `unsafe-inline`** (nonces ou hachages pour les scripts et
+  styles inline) : **pas encore implémentée**, écart assumé et documenté dans l'ADR 0009 — le build
+  Angular inline un `<style>` critique et plusieurs `<script>` d'hydratation dans `index.html`, ce
+  qui demande des hachages SHA-256 recalculés à chaque build plutôt qu'un `unsafe-inline` qui
+  viderait la CSP de son intérêt. À reprendre comme travail dédié.
+- CORS : **retiré entièrement** plutôt que restreint à une liste d'origines (ADR 0009) — le backend
+  sert désormais aussi le frontend (même processus, toujours same-origin, y compris en
+  développement via le proxy `ng serve`), donc plus aucun scénario cross-origin légitime.
+- Cookies : non applicable, aucun cookie émis par l'application.
+- Antiforgery : non applicable, aucun endpoint ne modifie d'état (API en lecture seule, §2).
+- Limitation de débit sur les endpoints publics : en place depuis l'ADR 0009
+  (`Microsoft.AspNetCore.RateLimiting`, natif) — plafond global par IP sur `/api/*`, plafond plus
+  strict (`ScheduleEndpoints.PronoteRateLimitPolicyName`) sur les endpoints qui appellent PRONOTE en
+  direct, pour protéger sa session partagée d'un usage excessif. Protection anti-bot : non
+  applicable, aucun formulaire d'écriture public.
+- `AllowedHosts` restreint aux domaines réels de production plutôt que `*` (ADR 0009), rouvert à
+  `*` dans `appsettings.Development.json` pour ne pas gêner le développement local.
 
 ## 5. Dépendances et supply chain
 

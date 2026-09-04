@@ -13,7 +13,7 @@ Manuel opératoire des agents IA travaillant sur ce dépôt.
 | Objectif (1–2 phrases) | Générer une URL de calendrier (`.ics`) toujours à jour à partir des horaires PRONOTE de l'UMONS, à souscrire dans une application de calendrier (Google Calendar, Outlook, Apple Calendar). |
 | Client / propriétaire | Projet personnel de Vincent Pellichero — **non commercial**, sans obligation contractuelle envers l'UMONS ni envers un tiers. |
 | Type | Application métier : une façade REST + une SPA (page d'accueil + page d'aide). Pas de compte utilisateur, pas de persistance en base. |
-| Environnements | `URL_DEV` : `http://localhost:4200` (frontend, `ng serve`) + `http://localhost:5199` (backend, `dotnet run`) · `URL_STAGING` : à définir (sous-dossier de test sur l'hébergement mutualisé) · `URL_PROD` : <https://umonsplanning.pellichero.be> |
+| Environnements | `URL_DEV` : `http://localhost:4200` (frontend, `ng serve`) + `http://localhost:5199` (backend, `dotnet run`) · `URL_STAGING` : <https://test.umonsplanning.pellichero.be> (branche `develop`) · `URL_PROD` : <https://umonsplanning.pellichero.be> (branche `main`) |
 | Hébergement | Mutualisé Windows (type Plesk/IIS) — voir `docs/adr/0004-mutualized-hosting-topology.md` pour les conséquences d'architecture |
 | Langues / marchés | fr-BE uniquement (public UMONS francophone). Aucune infrastructure de localisation introduite pour ce seul marché — voir §8. |
 
@@ -94,7 +94,9 @@ Autres documents du projet :
 **Outils**
 - Gestionnaires de paquets : NuGet (Central Package Management, `Directory.Packages.props`) + npm (lockfile commité).
 - Conteneurs : aucun en production (hébergement mutualisé) ; usage local libre s'il simplifie le poste de développement.
-- CI/CD : aucune pour l'instant — déploiement manuel vers l'hébergement mutualisé. À mettre en place si le projet grandit (voir « Hors périmètre »).
+- CI/CD : GitHub Actions (`.github/workflows/ci-cd.yml`) — build/tests sur chaque branche et PR,
+  déploiement FTPS automatique (`develop` → test, `main` → production). Voir
+  `docs/adr/0010-cicd-github-actions-ftps-deploy.md`.
 - IDE : au choix du mainteneur (Visual Studio, VS Code, Rider).
 
 ---
@@ -102,6 +104,8 @@ Autres documents du projet :
 ## 5. Structure du dépôt
 
 ```text
+.github/
+  workflows/ci-cd.yml               Build/tests à chaque branche, déploiement FTPS (ADR 0010)
 UMonsPlanning.slnx
 global.json                        Épingle le SDK .NET et le mode `dotnet test` (Microsoft.Testing.Platform)
 Directory.Build.props              TargetFramework net10.0, Nullable, TreatWarningsAsErrors, etc.
@@ -262,8 +266,15 @@ Chaque module activé en §2 ajoute sa propre checklist (accessibilité, perform
   derrière une garde (`afterNextRender`, `isPlatformBrowser`) — toute la logique de génération de
   lien et d'appel `/api/schedule.ics` est de toute façon déclenchée par une interaction utilisateur,
   donc intrinsèquement post-hydratation.
-- **Même origine via sous-chemin `/api`**, pas de sous-domaine séparé, pour que
-  `window.location.origin` suffise à construire l'URL de calendrier dans tous les environnements.
+- **Le backend sert aussi le frontend** (fichiers statiques + fallback SPA dans le même processus
+  ASP.NET Core, voir `docs/adr/0009-backend-serves-frontend.md`, qui amende
+  `docs/adr/0004-mutualized-hosting-topology.md` décision 3) : une seule application IIS pour tout
+  le site, `/api` comme routage interne plutôt que comme application IIS séparée. Conséquence :
+  `app_offline.htm`/`_app_offline.htm` (bascule faite par le pipeline de déploiement, voir
+  `docs/adr/0010-cicd-github-actions-ftps-deploy.md`) coupe tout le site avec un seul fichier,
+  reconnu nativement par ANCM à la racine de l'application. Même origine via sous-chemin `/api`,
+  pas de sous-domaine séparé, pour que `window.location.origin` suffise à construire l'URL de
+  calendrier dans tous les environnements — aucune politique CORS n'est nécessaire.
 - **Résilience réseau vers PRONOTE : non implémentée pour l'instant.** `PronoteClient` gère déjà le
   renouvellement de session sur expiration, mais aucune politique de retry/circuit breaker
   (`Microsoft.Extensions.Http.Resilience`) n'a été ajoutée — le volume de requêtes est faible et
@@ -291,13 +302,14 @@ Chaque module activé en §2 ajoute sa propre checklist (accessibilité, perform
   pas seulement avec les fixtures de test.
 - `Slug.From` doit rester correct sous compilation .NET normale (ICU chargée) : voir
   `docs/adr/0002-no-invariant-globalization.md` avant de jamais reconsidérer `InvariantGlobalization`.
+- `AllowedHosts` (`appsettings.json`) liste les domaines réels de production : un domaine
+  supplémentaire (nouveau sous-domaine, renommage) doit y être ajouté, sinon IIS/Kestrel répond
+  400 « Invalid Hostname » à toute requête légitime sur ce domaine.
 
 ### Hors périmètre
 - Authentification, comptes utilisateurs, favoris multi-appareils synchronisés (aucun besoin
   identifié : l'URL de calendrier générée est elle-même le seul « état » à conserver, côté
   utilisateur, dans son application de calendrier).
-- CI/CD automatisée : non mise en place dans cette session. À faire si le rythme de changements le
-  justifie.
 - Tests end-to-end (Playwright) : non écrits dans cette session, faute de parcours à risque
   justifiant l'investissement pour un projet personnel à un seul contributeur ; à réévaluer si des
   régressions utilisateur apparaissent.

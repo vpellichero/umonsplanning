@@ -1,5 +1,7 @@
 # UMonsPlanning
 
+[![CI/CD](https://github.com/vpellichero/umonsplanning/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/vpellichero/umonsplanning/actions/workflows/ci-cd.yml)
+
 **Votre horaire de cours UMONS, toujours à jour dans votre propre agenda.**
 
 UMonsPlanning génère un lien d'abonnement à ajouter **une seule fois** dans Google Calendar, Outlook, Apple Calendar, Thunderbird ou Proton Calendar. Votre agenda se met ensuite à jour tout seul en fonction de votre horaire PRONOTE/HyperPlanning, du coup, plus jamais besoin de réexporter quoi que ce soit.
@@ -41,8 +43,8 @@ lien :
 | Composant | Stack | Rôle |
 |---|---|---|
 | `src/UMonsPlanning.Pronote` | .NET 10 | Client PRONOTE rétro-ingénieré (gestion de session, chiffrement AES du numéro d'ordre, mapping de l'horaire). Voir [`docs/pronote-protocol.md`](docs/pronote-protocol.md) pour le détail complet du protocole. |
-| `src/UMonsPlanning.Backend` | ASP.NET Core Minimal API | Façade REST : Fournit le contenu des listes déroulantes (cache fichier, rafraîchi mensuellement), et l'endpoint d'export `.ics` (généré avec [Ical.Net](https://github.com/rianjs/ical.net)). |
-| `src/UMonsPlanning.Frontend` | Angular 21 | La SPA décrite ci-dessus : générateur de lien, aperçu du calendrier, page d'aide. Prérendue statiquement (aucun serveur Node requis en production). |
+| `src/UMonsPlanning.Backend` | ASP.NET Core Minimal API | Façade REST : fournit le contenu des listes déroulantes (cache fichier, rafraîchi mensuellement) et l'endpoint d'export `.ics` (généré avec [Ical.Net](https://github.com/rianjs/ical.net)). Sert aussi les fichiers statiques du frontend en production (une seule application). |
+| `src/UMonsPlanning.Frontend` | Angular 21 | La SPA décrite ci-dessus : générateur de lien, aperçu du calendrier, page d'aide. Prérendue statiquement (aucun serveur Node requis en production) — le résultat est servi par le backend ci-dessus. |
 | `tools/UMonsPlanning.Cli` | .NET 10 | Outil de vérification en ligne de commande du client PRONOTE, utilisé quand le protocole doit être revérifié contre le serveur réel. |
 
 Chaque décision d'architecture plus complexe (choix de dépendance, contrainte d'hébergement,

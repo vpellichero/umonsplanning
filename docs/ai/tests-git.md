@@ -72,7 +72,13 @@ périmètre »).
 
 ## 2. Git
 
-- Branches : `feature/<slug>`, `fix/<slug>`, `chore/<slug>` — pas de système de ticket sur ce projet personnel.
+- Deux branches longues : `main` (production, `umonsplanning.pellichero.be`) et `develop`
+  (test/intégration, `test.umonsplanning.pellichero.be`) — voir
+  `docs/adr/0010-cicd-github-actions-ftps-deploy.md`. Toutes deux protégées sur GitHub (PR + revue
+  obligatoires, statuts CI à jour, pas de force-push ni de suppression).
+- Branches de travail : `feature/<slug>`, `fix/<slug>`, `chore/<slug>`, ouvertes depuis `develop`
+  et fusionnées dans `develop` par PR — pas de système de ticket sur ce projet personnel. `develop`
+  se fusionne dans `main` par PR pour chaque mise en production.
 - **Conventional Commits en anglais**, à l'impératif : `feat:`, `fix:`, `refactor:`, `perf:`, `docs:`, `test:`, `build:`, `ci:`, `chore:`. Portée optionnelle : `feat(catalog): add product filtering`.
 - Un commit = un changement logique cohérent. Pas de `wip`, pas de `fix stuff`, pas de commit fourre-tout mêlant fonctionnalité, reformatage et montée de version.
 - Les changements de rupture sont signalés (`!` ou `BREAKING CHANGE:`) et documentés.
@@ -85,7 +91,9 @@ périmètre »).
 - Description : le **quoi** et surtout le **pourquoi**, les changements de rupture, les étapes manuelles de déploiement, les captures avant/après pour l'UI, les chiffres avant/après pour la performance.
 - Auto-relecture avant demande de relecture : diff relu ligne à ligne, code de débogage retiré.
 - CI verte obligatoire : build, tests, linters, analyse de vulnérabilités.
-- Projet personnel à un seul contributeur : pas de revue de PR formelle. Si des PR sont malgré tout ouvertes (revue externe ponctuelle), les garder sous ~400 lignes modifiées, sinon découper.
+- Dépôt public depuis `docs/adr/0010-cicd-github-actions-ftps-deploy.md` : la protection de branche
+  GitHub impose une revue approuvée sur toute PR vers `main`/`develop` — ce n'est plus une
+  recommandation. Garder les PR sous ~400 lignes modifiées, sinon découper.
 
 ## 4. Décisions d'architecture (ADR)
 
