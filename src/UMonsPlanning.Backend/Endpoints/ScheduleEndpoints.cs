@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using UMonsPlanning.Backend.Calendar;
 using UMonsPlanning.Backend.Contracts;
 using UMonsPlanning.Backend.Validation;
@@ -11,6 +12,11 @@ namespace UMonsPlanning.Backend.Endpoints;
 /// <summary>Schedule: JSON view of a week, academic calendar, and iCalendar export.</summary>
 public static class ScheduleEndpoints
 {
+    /// <summary>Rate limiting policy applied to every endpoint below that calls PRONOTE live
+    /// (not file-cached), on top of the global limiter — protects the shared PRONOTE session/order
+    /// counter from an abusive client (see docs/adr/0009-backend-serves-frontend.md).</summary>
+    public const string PronoteRateLimitPolicyName = "pronote";
+
     public static IEndpointRouteBuilder MapScheduleEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/calendar", async (IPronoteClient client, CancellationToken ct) =>
@@ -27,6 +33,7 @@ public static class ScheduleEndpoints
                 IPronoteClient client,
                 CancellationToken ct) =>
                 Results.Ok(await client.GetScheduleAsync(formation, section, week, ct)))
+           .RequireRateLimiting(PronoteRateLimitPolicyName)
            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(10))
                               .SetVaryByQuery("formation", "section", "week"))
            .WithName("GetSchedule")
@@ -43,6 +50,7 @@ public static class ScheduleEndpoints
                 IPronoteClient client,
                 CancellationToken ct) =>
                 Results.Ok(new { date, week = await client.GetWeekNumberAsync(date, ct) }))
+           .RequireRateLimiting(PronoteRateLimitPolicyName)
            .WithName("GetWeekByDate")
            .WithSummary("Translates a date into a PRONOTE week number.")
            .WithDescription(
@@ -61,6 +69,7 @@ public static class ScheduleEndpoints
                 return Results.Text(ics, "text/calendar", Encoding.UTF8);
             })
            .AddEndpointFilter<ValidationFilter<ScheduleIcsQuery>>()
+           .RequireRateLimiting(PronoteRateLimitPolicyName)
            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(30))
                               .SetVaryByQuery("formation", "section", "week", "date", "start", "end", "layout"))
            .WithName("GetScheduleIcs")

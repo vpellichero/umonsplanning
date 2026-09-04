@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
 using UMonsPlanning.Backend.Catalog;
 using UMonsPlanning.Backend.Contracts;
@@ -36,20 +38,44 @@ builder.Services.AddOptions<CatalogOptions>()
 
 builder.Services.AddValidatorsFromAssemblyContaining<ScheduleIcsQueryValidator>();
 
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
-    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
-
 builder.Services.AddOutputCache(options =>
     options.AddBasePolicy(policy => policy.Expire(TimeSpan.FromMinutes(5))));
+
+// No CORS policy: the frontend is served by this same process (same origin in every environment,
+// including local dev through the Angular proxy), so no cross-origin caller is expected.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Protects the backend itself from being flooded, regardless of which endpoint is targeted.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // Stricter cap on the endpoints that call PRONOTE live (not file-cached), on top of the global
+    // limiter above — protects the shared PRONOTE session/order counter from an abusive client.
+    options.AddPolicy(ScheduleEndpoints.PronoteRateLimitPolicyName, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 WebApplication app = builder.Build();
 
 app.MapOpenApi();
 app.MapScalarApiReference(options => options
     .WithTitle("UMONS – Horaires de cours"));
-
-app.UseCors();
-app.UseOutputCache();
 
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
@@ -74,7 +100,27 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     });
 }));
 
-app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+    context.Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin");
+    await next().ConfigureAwait(false);
+});
+
+app.UseRateLimiter();
+app.UseOutputCache();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", utc = DateTimeOffset.UtcNow }))
    .WithName("Health")
@@ -82,6 +128,10 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok", utc = DateTimeOf
 
 app.MapCatalogEndpoints();
 app.MapScheduleEndpoints();
+
+// Serves the Angular app for every route it owns client-side (e.g. /aide) accessed directly ;
+// only reached when no API/Scalar/OpenAPI endpoint above already matched.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
