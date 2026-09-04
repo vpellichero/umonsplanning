@@ -82,13 +82,22 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
     Exception? error = feature?.Error;
 
-    (int status, string title) = error switch
+    // Only expected, well-understood exceptions get their message exposed to the client: they
+    // carry no server-internal detail. Anything else (an unhandled bug) must stay generic here —
+    // its message can leak internals such as local file paths — and is logged server-side instead.
+    (int status, string title, string? detail) = error switch
     {
-        PronoteException { SessionExpired: false } => (StatusCodes.Status404NotFound, "PRONOTE resource not found"),
-        PronoteException => (StatusCodes.Status502BadGateway, "PRONOTE rejected the request"),
-        ArgumentOutOfRangeException => (StatusCodes.Status400BadRequest, "Invalid parameter"),
-        _ => (StatusCodes.Status500InternalServerError, "Internal error")
+        PronoteException { SessionExpired: false } ex => (StatusCodes.Status404NotFound, "PRONOTE resource not found", ex.Message),
+        PronoteException ex => (StatusCodes.Status502BadGateway, "PRONOTE rejected the request", ex.Message),
+        ArgumentOutOfRangeException ex => (StatusCodes.Status400BadRequest, "Invalid parameter", ex.Message),
+        _ => (StatusCodes.Status500InternalServerError, "Internal error", null)
     };
+
+    if (status == StatusCodes.Status500InternalServerError && error is not null)
+    {
+        ILogger<Program> logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(error, "Unhandled exception while processing {Method} {Path}", context.Request.Method, context.Request.Path);
+    }
 
     context.Response.StatusCode = status;
     context.Response.ContentType = "application/problem+json";
@@ -96,7 +105,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     {
         Status = status,
         Title = title,
-        Detail = error?.Message
+        Detail = detail
     });
 }));
 
