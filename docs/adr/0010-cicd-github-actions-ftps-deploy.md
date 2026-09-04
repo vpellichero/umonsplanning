@@ -102,6 +102,16 @@ asset Angular mais une préoccupation d'hébergement IIS), et une étape dédié
 (« Seed the maintenance-mode marker file ») le copie explicitement vers `publish/_app_offline.htm`
 — à la racine du publié, au même niveau que `web.config` — avant l'envoi FTP.
 
+Quatrième cas limite, conséquence directe du précédent : une fois `_app_offline.htm` correctement
+déposé à la racine, la bascule fonctionne enfin (bonne nouvelle), mais la synchronisation `mirror`
+qui suit **redépose aussitôt un nouveau `_app_offline.htm`** — sa copie locale ne correspond plus à
+aucun fichier distant de ce nom, puisque celui-ci vient d'être renommé en `app_offline.htm` par
+« Enter maintenance mode ». Résultat : au moment où « Leave maintenance mode » tente de renommer
+`app_offline.htm` → `_app_offline.htm` en fin de déploiement, la destination existe déjà, et le
+renommage échoue (`550`) — le site reste bloqué en maintenance jusqu'à intervention manuelle,
+malgré un job marqué « success ». La bascule de sortie supprime maintenant l'éventuelle copie
+parasite avant de renommer (`rm _app_offline.htm; mv app_offline.htm _app_offline.htm`).
+
 **Vérification du certificat TLS assouplie, constatée en production, pas préventive** : le premier
 déploiement réel a échoué avec `Certificate verification: certificate common name doesn't match
 requested host name` — le certificat TLS du serveur mutualisé ne correspond pas au nom d'hôte
