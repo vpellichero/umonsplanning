@@ -8,7 +8,10 @@ import { environment } from '../../environments/environment';
 interface SeoRouteData {
   readonly description?: string;
   readonly noIndex?: boolean;
+  readonly jsonLd?: readonly object[];
 }
+
+const JSON_LD_SCRIPT_ATTRIBUTE = 'data-route-json-ld';
 
 /**
  * Keeps the canonical link and Open Graph/Twitter meta tags in sync with the active route.
@@ -49,6 +52,25 @@ export class SeoMetaService {
       this.meta.updateTag({ name: 'robots', content: 'noindex' });
     } else {
       this.meta.removeTag('name="robots"');
+    }
+
+    this.applyJsonLd(data.jsonLd ?? []);
+  }
+
+  /** Removes the previous route's structured-data scripts and inserts the new ones - runs during
+   * prerendering too (see the class doc comment), so each route's own schemas end up in the
+   * static HTML actually served, not only patched in after hydration. */
+  private applyJsonLd(schemas: readonly object[]): void {
+    this.document.head
+      .querySelectorAll(`script[${JSON_LD_SCRIPT_ATTRIBUTE}]`)
+      .forEach((script) => script.remove());
+
+    for (const schema of schemas) {
+      const script = this.document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute(JSON_LD_SCRIPT_ATTRIBUTE, '');
+      script.textContent = JSON.stringify(schema);
+      this.document.head.appendChild(script);
     }
   }
 

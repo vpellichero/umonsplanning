@@ -53,6 +53,14 @@
     >
       Aide
     </a>
+    @for (link of footerGuideLinks; track link.path) {
+      <a
+        [routerLink]="link.path"
+        class="hover:text-brand-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+      >
+        {{ link.label }}
+      </a>
+    }
     <a
       href="https://github.com/vpellichero/umonsplanning"
       target="_blank"

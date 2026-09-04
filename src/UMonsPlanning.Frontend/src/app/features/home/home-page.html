@@ -68,75 +68,11 @@
 <section class="mt-12" aria-labelledby="faq-title">
   <h2 id="faq-title" class="text-xl font-semibold text-slate-900">Questions fréquentes</h2>
   <dl class="mt-4 space-y-4">
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">Mon horaire se met-il à jour automatiquement ?</dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        Oui. Une fois le lien ajouté dans votre application de calendrier, elle revient interroger
-        l'URL toute seule à intervalles réguliers (l'intervalle exact dépend de l'application,
-        généralement de quelques heures à une journée) — vous n'avez rien à réimporter, même après
-        un changement d'horaire à l'UMONS.
-      </dd>
-    </div>
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">
-        Pourquoi l'application mobile Google Calendar ne permet-elle pas d'ajouter un calendrier
-        par URL ?
-      </dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        C'est une limitation de l'application mobile elle-même (iOS et Android) : Google n'y
-        propose pas d'option « Ajouter par URL ». Ajoutez le lien une fois depuis la version web de
-        Google Calendar (sur un ordinateur ou le navigateur de votre téléphone) — le calendrier
-        apparaît ensuite automatiquement dans l'application mobile, sans rien réinstaller.
-      </dd>
-    </div>
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">
-        Combien de temps avant qu'un changement d'horaire apparaisse ?
-      </dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        Ça dépend de la fréquence à laquelle votre application de calendrier vérifie le lien (elle
-        seule en décide, pas UMonsPlanning) — en général de quelques heures à une journée. Le lien
-        reflète toujours l'horaire actuel dès que vous le consultez (via « Tester votre
-        calendrier » par exemple).
-      </dd>
-    </div>
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">Est-ce officiel ?</dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        Non. UMonsPlanning est un outil personnel, non affilié à l'UMONS, qui lit les mêmes données
-        que l'espace invité Hyperplanning/PRONOTE accessible publiquement. En cas de doute sur
-        votre horaire, l'espace Hyperplanning officiel de l'UMONS reste la référence.
-      </dd>
-    </div>
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">
-        Que se passe-t-il si je change de formation ?
-      </dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        Le lien généré correspond à la formation et à la section choisies au moment de sa
-        création. Si vous changez de formation, générez simplement un nouveau lien pour votre
-        nouveau choix et ajoutez-le à votre calendrier — l'ancien lien continue de pointer vers
-        l'ancienne formation tant que vous ne le retirez pas.
-      </dd>
-    </div>
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">Mes données sont-elles collectées ?</dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        Non. Aucun compte, aucun cookie, aucune donnée personnelle : le formulaire tourne
-        entièrement dans votre navigateur, et le lien généré ne contient que votre formation et
-        votre section (déjà publiques sur l'espace invité PRONOTE). Le seul chiffre conservé est un
-        compteur global et anonyme du nombre de liens générés, affiché plus haut sur cette page.
-      </dd>
-    </div>
-    <div class="rounded-card border border-slate-200 bg-white p-4">
-      <dt class="font-semibold text-slate-900">Quelle différence avec Hyperplanning ?</dt>
-      <dd class="mt-1 text-sm text-slate-600">
-        Hyperplanning (PRONOTE) est le portail de l'UMONS où consulter votre horaire en vous
-        connectant à chaque fois. UMonsPlanning ne remplace pas ce portail : il génère un lien à
-        ajouter une seule fois dans votre propre application de calendrier, qui se synchronise
-        ensuite automatiquement — vous n'avez plus besoin de revisiter le portail pour voir votre
-        semaine.
-      </dd>
-    </div>
+    @for (entry of faq; track entry.question) {
+      <div class="rounded-card border border-slate-200 bg-white p-4">
+        <dt class="font-semibold text-slate-900">{{ entry.question }}</dt>
+        <dd class="mt-1 text-sm text-slate-600">{{ entry.answer }}</dd>
+      </div>
+    }
   </dl>
 </section>

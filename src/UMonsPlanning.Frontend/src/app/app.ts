@@ -13,4 +13,13 @@ import { LegalDisclaimerDialog } from './features/legal-disclaimer/legal-disclai
 })
 export class App {
   protected readonly isTestEnvironment = environment.isTestEnvironment;
+
+  protected readonly footerGuideLinks = [
+    { label: 'Google Calendar', path: '/horaire-umons-google-calendar' },
+    { label: 'Outlook', path: '/horaire-umons-outlook' },
+    { label: 'Apple Calendar', path: '/horaire-umons-apple-calendar' },
+    { label: 'Thunderbird', path: '/horaire-umons-thunderbird' },
+    { label: 'Proton Calendar', path: '/horaire-umons-proton-calendar' },
+    { label: 'Hyperplanning UMONS', path: '/hyperplanning-umons' },
+  ];
 }

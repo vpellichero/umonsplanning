@@ -11,12 +11,17 @@ class StubPageA {}
 class StubPageB {}
 
 const routes: Routes = [
-  { path: '', component: StubPageA, title: 'Home title', data: { description: 'Home description' } },
+  {
+    path: '',
+    component: StubPageA,
+    title: 'Home title',
+    data: { description: 'Home description', jsonLd: [{ '@type': 'WebSite' }] },
+  },
   {
     path: 'other',
     component: StubPageB,
     title: 'Other title',
-    data: { description: 'Other description', noIndex: true },
+    data: { description: 'Other description', noIndex: true, jsonLd: [{ '@type': 'HowTo' }] },
   },
 ];
 
@@ -41,9 +46,13 @@ describe('SeoMetaService', () => {
     );
     expect(document.querySelector('meta[property="og:title"]')?.getAttribute('content')).toBe('Home title');
     expect(document.querySelector('meta[name="robots"]')).toBeNull();
+
+    const script = document.querySelector('script[data-route-json-ld]');
+    expect(script?.getAttribute('type')).toBe('application/ld+json');
+    expect(JSON.parse(script?.textContent ?? 'null')).toEqual({ '@type': 'WebSite' });
   });
 
-  it('should update the canonical link and add noindex when navigating to a different route', async () => {
+  it('should update the canonical link, noindex and structured data when navigating to a different route', async () => {
     const service = TestBed.inject(SeoMetaService);
     service.start();
     const harness = await RouterTestingHarness.create('/');
@@ -56,5 +65,9 @@ describe('SeoMetaService', () => {
       'https://umonsplanning.pellichero.be/other',
     );
     expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex');
+
+    const scripts = document.querySelectorAll('script[data-route-json-ld]');
+    expect(scripts.length).toBe(1);
+    expect(JSON.parse(scripts[0].textContent ?? 'null')).toEqual({ '@type': 'HowTo' });
   });
 });
