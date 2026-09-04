@@ -46,9 +46,9 @@
 
 <section class="mt-12 text-center">
   <button
+    #genLinkButton
     type="button"
     class="w-full rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:w-auto"
-    (click)="openCalendarLinkDialog()"
   >
     Générer mon lien de calendrier
   </button>
@@ -65,4 +65,6 @@
   </p>
 </section>
 
-<app-calendar-link-dialog />
+@defer (on interaction(genLinkButton)) {
+  <app-calendar-link-dialog />
+}

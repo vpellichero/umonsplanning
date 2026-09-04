@@ -102,23 +102,31 @@ async function generateDisplayLogos() {
   console.log(`logo-hero.webp: ${heroMeta.width}x${heroMeta.height}`);
 }
 
-/** Open Graph preview image (1200x630, PNG for maximum crawler compatibility): the horizontal
- * logo centered on a plain white canvas with generous padding. */
-async function generateOgImage() {
+/** Composes the Open Graph preview canvas (1200x630, horizontal logo centered on plain white),
+ * shared by the PNG and WebP variants below — only the final encoding differs between them. */
+async function buildOgCanvas() {
   const canvasWidth = 1200;
   const canvasHeight = 630;
   const logo = await sharp(publicPath('logo-horizontal.webp'))
     .resize({ width: Math.round(canvasWidth * 0.7), fit: 'inside' })
     .toBuffer();
 
-  const buffer = await sharp({
+  return sharp({
     create: { width: canvasWidth, height: canvasHeight, channels: 3, background: '#ffffff' },
-  })
-    .composite([{ input: logo, gravity: 'center' }])
-    .png()
-    .toBuffer();
+  }).composite([{ input: logo, gravity: 'center' }]);
+}
 
+/** Open Graph preview image, PNG for maximum crawler compatibility — listed first in index.html. */
+async function generateOgImage() {
+  const buffer = await (await buildOgCanvas()).png().toBuffer();
   await writeFile(publicPath('og-image.png'), buffer);
+}
+
+/** Same OG preview image as a lighter WebP, listed as a second `og:image` in index.html for the
+ * crawlers that support it — the PNG above stays first for maximum compatibility. */
+async function generateOgImageWebp() {
+  const buffer = await (await buildOgCanvas()).webp({ quality: 80 }).toBuffer();
+  await writeFile(publicPath('og-image.webp'), buffer);
 }
 
 /** Recompresses the source logos as lossy WebP q80: they were exported lossless (100-470 KB for
@@ -140,5 +148,6 @@ await generateMaskableIcon();
 await generateManifest();
 await generateDisplayLogos();
 await generateOgImage();
+await generateOgImageWebp();
 
 console.log('Icons, favicons, manifest, display logos and OG image regenerated in public/.');

@@ -103,7 +103,13 @@ export class CalendarLinkDialog {
   });
 
   constructor() {
-    afterNextRender(() => this.origin.set(window.location.origin));
+    // Only ever instantiated in reaction to the "generate my calendar link" button (deferred,
+    // see home-page.html's `@defer (on interaction(...))`), so opening as soon as it renders is
+    // the expected behavior - there is no separate "open" trigger left to wire from HomePage.
+    afterNextRender(() => {
+      this.origin.set(window.location.origin);
+      this.open();
+    });
   }
 
   open(): void {
