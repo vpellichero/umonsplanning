@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Breadcrumb } from '../../core/breadcrumb/breadcrumb';
 
 interface HelpLink {
   readonly name: string;
@@ -9,11 +10,13 @@ interface HelpLink {
 
 @Component({
   selector: 'app-help-page',
-  imports: [RouterLink],
+  imports: [RouterLink, Breadcrumb],
   templateUrl: './help-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HelpPage {
+  protected readonly breadcrumb = [{ label: 'Accueil', link: '/' }, { label: 'Aide' }];
+
   protected readonly links: readonly HelpLink[] = [
     {
       name: 'Google Calendar (Gmail)',

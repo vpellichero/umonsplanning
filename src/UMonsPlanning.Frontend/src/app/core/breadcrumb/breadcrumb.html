@@ -1,0 +1,18 @@
+<nav aria-label="Fil d'ariane" class="mb-6 text-sm text-slate-500">
+  <ol class="flex flex-wrap items-center gap-1">
+    @for (item of items(); track item.label; let last = $last) {
+      <li class="flex items-center gap-1">
+        @if (item.link && !last) {
+          <a [routerLink]="item.link" class="hover:text-brand-600 hover:underline">{{
+            item.label
+          }}</a>
+        } @else {
+          <span aria-current="page" class="text-slate-700">{{ item.label }}</span>
+        }
+        @if (!last) {
+          <span aria-hidden="true">/</span>
+        }
+      </li>
+    }
+  </ol>
+</nav>

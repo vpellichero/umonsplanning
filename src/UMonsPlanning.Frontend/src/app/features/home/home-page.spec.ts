@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { HomePage } from './home-page';
 
@@ -9,7 +9,6 @@ describe('HomePage', () => {
     await TestBed.configureTestingModule({
       imports: [HomePage],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
-      deferBlockBehavior: DeferBlockBehavior.Manual,
     }).compileComponents();
   });
 
@@ -20,29 +19,25 @@ describe('HomePage', () => {
     expect(compiled.querySelector('h1')?.textContent).toContain('Votre horaire UMONS');
   });
 
-  it('should render a button to open the calendar link dialog', () => {
+  it('should render the calendar link form directly, without needing an interaction first', () => {
     const fixture = TestBed.createComponent(HomePage);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    const buttons = Array.from(compiled.querySelectorAll('button'));
-    expect(buttons.some((b) => b.textContent?.includes('Générer mon lien de calendrier'))).toBe(true);
+    expect(compiled.querySelector('select#formation')).not.toBeNull();
   });
 
-  it('should not render the calendar link dialog before the button is interacted with', () => {
+  it('should mention Hyperplanning in the visible intro text', () => {
     const fixture = TestBed.createComponent(HomePage);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('app-calendar-link-dialog')).toBeNull();
+    expect(compiled.querySelector('p')?.textContent).toContain('Hyperplanning');
   });
 
-  it('should render the calendar link dialog once its @defer block completes', async () => {
+  it('should render a visible FAQ section with every question', () => {
     const fixture = TestBed.createComponent(HomePage);
     fixture.detectChanges();
-
-    const [deferBlock] = await fixture.getDeferBlocks();
-    await deferBlock.render(DeferBlockState.Complete);
-
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('app-calendar-link-dialog')).not.toBeNull();
+    const questions = Array.from(compiled.querySelectorAll('#faq-title ~ dl dt'));
+    expect(questions.length).toBeGreaterThanOrEqual(7);
   });
 });

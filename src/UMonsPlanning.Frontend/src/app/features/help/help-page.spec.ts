@@ -21,7 +21,7 @@ describe('HelpPage', () => {
     const fixture = TestBed.createComponent(HelpPage);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    const anchors = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('li a'));
+    const anchors = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('#calendar-apps a'));
     expect(anchors.length).toBeGreaterThan(0);
     for (const anchor of anchors) {
       expect(anchor.href.startsWith('https://')).toBe(true);
