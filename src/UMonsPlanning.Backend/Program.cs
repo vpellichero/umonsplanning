@@ -130,8 +130,11 @@ app.MapCatalogEndpoints();
 app.MapScheduleEndpoints();
 
 // Serves the Angular app for every route it owns client-side (e.g. /aide) accessed directly ;
-// only reached when no API/Scalar/OpenAPI endpoint above already matched.
-app.MapFallbackToFile("index.html");
+// only reached when no API/Scalar/OpenAPI endpoint above already matched. The regex excludes
+// "api/..." explicitly: without it, a request with the wrong HTTP verb (e.g. HEAD on /api/health,
+// as a monitoring probe would send) falls through to this route-agnostic fallback and gets a
+// misleading 200 with the SPA's HTML instead of an honest 404.
+app.MapFallbackToFile("{*path:regex(^(?!api/).*$):nonfile}", "index.html");
 
 app.Run();
 

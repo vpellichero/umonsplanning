@@ -1,0 +1,184 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet restore
+      - run: dotnet build UMonsPlanning.slnx --nologo --no-restore
+      - run: dotnet test --solution UMonsPlanning.slnx --no-build
+      - run: dotnet format --verify-no-changes
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/UMonsPlanning.Frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: src/UMonsPlanning.Frontend/package.json
+          cache: npm
+          cache-dependency-path: src/UMonsPlanning.Frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  deploy-test:
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: src/UMonsPlanning.Frontend/package.json
+          cache: npm
+          cache-dependency-path: src/UMonsPlanning.Frontend/package-lock.json
+
+      - name: Publish backend
+        run: dotnet publish src/UMonsPlanning.Backend -c Release -o publish
+
+      - name: Build frontend
+        working-directory: src/UMonsPlanning.Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Merge frontend into the backend's wwwroot
+        run: |
+          mkdir -p publish/wwwroot
+          cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
+
+      - name: Enter maintenance mode
+        id: maintenance-on
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y lftp
+          if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
+            echo "already_offline=true" >> "$GITHUB_OUTPUT"
+          else
+            lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv _app_offline.htm app_offline.htm; bye" "ftp://$FTP_HOST"
+            echo "already_offline=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: publish/
+          server-dir: /
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            app_offline.htm
+
+      - name: Leave maintenance mode
+        if: always() && steps.maintenance-on.outputs.already_offline == 'false'
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
+
+  deploy-prod:
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: src/UMonsPlanning.Frontend/package.json
+          cache: npm
+          cache-dependency-path: src/UMonsPlanning.Frontend/package-lock.json
+
+      - name: Publish backend
+        run: dotnet publish src/UMonsPlanning.Backend -c Release -o publish
+
+      - name: Build frontend
+        working-directory: src/UMonsPlanning.Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Merge frontend into the backend's wwwroot
+        run: |
+          mkdir -p publish/wwwroot
+          cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
+
+      - name: Enter maintenance mode
+        id: maintenance-on
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y lftp
+          if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
+            echo "already_offline=true" >> "$GITHUB_OUTPUT"
+          else
+            lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv _app_offline.htm app_offline.htm; bye" "ftp://$FTP_HOST"
+            echo "already_offline=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: publish/
+          server-dir: /
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            app_offline.htm
+
+      - name: Leave maintenance mode
+        if: always() && steps.maintenance-on.outputs.already_offline == 'false'
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "set ftp:ssl-force yes; mv app_offline.htm _app_offline.htm; bye" "ftp://$FTP_HOST"
