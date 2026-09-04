@@ -9,6 +9,7 @@ on:
 jobs:
   build-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: build-backend-${{ github.ref }}
       cancel-in-progress: true
@@ -26,6 +27,7 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: build-frontend-${{ github.ref }}
       cancel-in-progress: true
@@ -49,6 +51,7 @@ jobs:
     needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: test
     concurrency:
       # No cancel-in-progress: this job toggles app_offline.htm on the server around the deploy —
@@ -82,6 +85,9 @@ jobs:
           mkdir -p publish/wwwroot
           cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
 
+      - name: Install lftp
+        run: sudo apt-get update -y && sudo apt-get install -y lftp
+
       - name: Enter maintenance mode
         id: maintenance-on
         env:
@@ -89,7 +95,6 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          sudo apt-get update -y && sudo apt-get install -y lftp
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no;"
           if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
             # Already in maintenance mode (started manually, or a previous deploy never completed) - leave it alone.
@@ -103,20 +108,13 @@ jobs:
           fi
 
       - name: Deploy over FTPS
-        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          local-dir: publish/
-          server-dir: /
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            app_offline.htm
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
@@ -131,6 +129,7 @@ jobs:
     needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production
     concurrency:
       # Same reasoning as deploy-test: never cancel a deploy mid-way, queue behind it instead.
@@ -162,6 +161,9 @@ jobs:
           mkdir -p publish/wwwroot
           cp -r src/UMonsPlanning.Frontend/dist/UMonsPlanning.Frontend/browser/. publish/wwwroot/
 
+      - name: Install lftp
+        run: sudo apt-get update -y && sudo apt-get install -y lftp
+
       - name: Enter maintenance mode
         id: maintenance-on
         env:
@@ -169,7 +171,6 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          sudo apt-get update -y && sudo apt-get install -y lftp
           LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no;"
           if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS ls app_offline.htm; bye" "ftp://$FTP_HOST" 2>/dev/null | grep -q "app_offline.htm"; then
             # Already in maintenance mode (started manually, or a previous deploy never completed) - leave it alone.
@@ -183,20 +184,13 @@ jobs:
           fi
 
       - name: Deploy over FTPS
-        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          local-dir: publish/
-          server-dir: /
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            app_offline.htm
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          LFTP_OPTS="set ftp:ssl-force yes; set ssl:verify-certificate no; set mirror:parallel-transfer-count 1;"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" -e "$LFTP_OPTS mirror --reverse --delete --verbose --exclude-glob app_offline.htm publish/ /; bye" "ftp://$FTP_HOST"
 
       - name: Leave maintenance mode
         if: always() && steps.maintenance-on.outputs.already_offline == 'false'
