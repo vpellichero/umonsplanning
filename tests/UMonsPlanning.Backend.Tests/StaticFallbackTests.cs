@@ -24,6 +24,7 @@ public sealed class StaticFallbackTests : IDisposable
         File.WriteAllText(Path.Combine(_webRoot, "aide", "index.html"), "<html><body>aide</body></html>");
         File.WriteAllText(Path.Combine(_webRoot, "404", "index.html"), "<html><body>not found</body></html>");
         File.WriteAllText(Path.Combine(_webRoot, "robots.txt"), "User-agent: *");
+        File.WriteAllText(Path.Combine(_webRoot, "main-ABC12345.js"), "console.log('bundle');");
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>
@@ -87,6 +88,36 @@ public sealed class StaticFallbackTests : IDisposable
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         body.Should().Be("User-agent: *");
+        response.Headers.CacheControl.Should().NotBeNull();
+        response.Headers.CacheControl!.ToString().Should().Be("public, max-age=3600");
+    }
+
+    [Fact]
+    public async Task GetHashedBundleFile_HasImmutableCacheControl()
+    {
+        using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        HttpResponseMessage response = await client.GetAsync("/main-ABC12345.js", ct);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.CacheControl.Should().NotBeNull();
+        response.Headers.CacheControl!.ToString().Should().Be("public, max-age=31536000, immutable");
+    }
+
+    [Fact]
+    public async Task GetHtmlPage_HasNoCacheCacheControl()
+    {
+        using WebApplicationFactory<Program> factory = CreateFactory();
+        using HttpClient client = factory.CreateClient();
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        HttpResponseMessage response = await client.GetAsync("/aide/", ct);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.CacheControl.Should().NotBeNull();
+        response.Headers.CacheControl!.ToString().Should().Be("no-cache");
     }
 
     [Fact]

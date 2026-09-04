@@ -4,11 +4,14 @@ using System.Threading.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.StaticFiles;
 using Scalar.AspNetCore;
 using UMonsPlanning.Backend.Catalog;
 using UMonsPlanning.Backend.Contracts;
 using UMonsPlanning.Backend.Endpoints;
 using UMonsPlanning.Backend.Stats;
+using UMonsPlanning.Backend.StaticAssets;
 using UMonsPlanning.Pronote;
 using UMonsPlanning.Pronote.Models;
 
@@ -47,6 +50,18 @@ builder.Services.AddValidatorsFromAssemblyContaining<ScheduleIcsQueryValidator>(
 
 builder.Services.AddOutputCache(options =>
     options.AddBasePolicy(policy => policy.Expire(TimeSpan.FromMinutes(5))));
+
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
+
+builder.Services.AddResponseCompression(options =>
+{
+    // Safe here: no authentication, no session, no secret ever reflected in a response (§12) - the
+    // usual BREACH-attack rationale for leaving HTTPS compression off doesn't apply.
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/manifest+json"]);
+});
 
 // No CORS policy: the frontend is served by this same process (same origin in every environment,
 // including local dev through the Angular proxy), so no cross-origin caller is expected.
@@ -132,11 +147,19 @@ app.Use(async (context, next) =>
     await next().ConfigureAwait(false);
 });
 
+// Must run before any middleware that writes a response body, so it can wrap that body in a
+// compressing stream - covers both the static assets below and the API's JSON responses.
+app.UseResponseCompression();
+
 app.UseRateLimiter();
 app.UseOutputCache();
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = StaticAssetContentTypes.Provider,
+    OnPrepareResponse = StaticAssetCacheControl.Apply
+});
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", utc = DateTimeOffset.UtcNow }))
    .WithName("Health")
@@ -177,6 +200,9 @@ app.MapFallback("{*path:nonfile}", async (HttpContext context) =>
         fileToServe = Path.Combine(environment.WebRootPath, "404", "index.html");
     }
 
+    // Same "no-cache" policy as the .html branch of StaticAssetCacheControl, applied here too since
+    // these pages are served straight from this handler rather than through UseStaticFiles.
+    context.Response.Headers.CacheControl = "no-cache";
     context.Response.ContentType = "text/html; charset=utf-8";
     await context.Response.SendFileAsync(fileToServe);
 });
