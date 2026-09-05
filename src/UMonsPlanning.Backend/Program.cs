@@ -95,9 +95,15 @@ builder.Services.AddRateLimiter(options =>
 
 WebApplication app = builder.Build();
 
-app.MapOpenApi();
-app.MapScalarApiReference(options => options
-    .WithTitle("UMONS – Horaires de cours"));
+if (app.Environment.IsDevelopment())
+{
+    // Not an API meant for third-party consumption (§12) - the OpenAPI document and its Scalar UI
+    // stay available locally, and in the repository for anyone who wants to read them, but are not
+    // served on the deployed test/production hosts.
+    app.MapOpenApi();
+    app.MapScalarApiReference(options => options
+        .WithTitle("UMONS – Horaires de cours"));
+}
 
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
