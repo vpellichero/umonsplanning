@@ -1,10 +1,15 @@
 /* Filigrane décoratif visible uniquement en environnement de test (voir docs/adr/0011). Couleur
    inline dans le data URI car un background-image ne peut pas consommer une variable CSS —
-   doit rester synchronisée avec --color-test-watermark-500 dans styles/theme.css. */
+   doit rester synchronisée avec --color-test-watermark-500 dans styles/theme.css.
+   z-index négatif intentionnel : place le filigrane derrière le contenu normal (header, cartes,
+   dialogues...) plutôt que devant - un z-index positif le peignait par-dessus tout, y compris le
+   texte, ce qui donnait l'impression que les éléments de la page étaient eux-mêmes transparents.
+   Body garde son fond opaque (bg-slate-50, styles.css) peint avant ce calque, donc le filigrane ne
+   reste visible que dans les zones réellement vides de la page (marges, espaces entre cartes). */
 .test-watermark {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: -1;
   pointer-events: none;
   opacity: 0.12;
   background-repeat: repeat;
