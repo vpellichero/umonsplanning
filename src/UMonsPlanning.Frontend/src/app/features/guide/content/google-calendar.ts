@@ -29,14 +29,18 @@ export const GOOGLE_CALENDAR_CONTENT: GuideContent = {
     },
     {
       title: 'Patientez quelques minutes',
-      body: 'Votre horaire apparaît peu après, y compris automatiquement sur l\'application mobile — inutile de la réinstaller ou de la reconfigurer.',
+      body: "Votre horaire apparaît peu après sur la version web. Sur l'application mobile, un réglage supplémentaire est parfois nécessaire — voir le piège ci-dessous.",
     },
   ],
   pitfallsTitle: 'Pièges à connaître',
   pitfalls: [
     {
       title: "L'application mobile ne propose pas cette option",
-      body: "Google Calendar sur iOS et Android n'a pas d'option « Ajouter par URL » dans son interface. Il faut obligatoirement passer par la version web au moins une fois — l'agenda se synchronise ensuite tout seul sur mobile.",
+      body: "Google Calendar sur iOS et Android n'a pas d'option « Ajouter par URL » dans son interface. Il faut obligatoirement passer par la version web au moins une fois (voir le piège suivant pour le faire apparaître ensuite sur mobile).",
+    },
+    {
+      title: "Le calendrier n'apparaît pas automatiquement sur l'application mobile",
+      body: 'Une fois ajouté depuis la version web, l\'agenda ne s\'affiche pas toujours tout de suite sur mobile. Ouvrez l\'application Google Calendar sur votre téléphone, allez dans ses paramètres (appuyez sur son nom dans la liste des agendas) et cochez la case « Synchroniser » — il apparaît alors dans votre liste de calendriers.',
     },
     {
       title: "La mise à jour n'est pas instantanée",
