@@ -12,20 +12,20 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { CatalogService } from '../../core/catalog.service';
 import type { PreviewEvent } from '../../core/models';
-import { parseIcsToEvents } from './ics-parser';
+import { StatsService } from '../../core/stats.service';
 import { SchedulePreviewDialog } from './schedule-preview-dialog';
 
 @Component({
-  selector: 'app-calendar-link-dialog',
+  selector: 'app-calendar-link-form',
   imports: [SchedulePreviewDialog],
-  templateUrl: './calendar-link-dialog.html',
+  templateUrl: './calendar-link-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CalendarLinkDialog {
+export class CalendarLinkForm {
   protected readonly catalog = inject(CatalogService);
   private readonly http = inject(HttpClient);
+  private readonly stats = inject(StatsService);
 
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly preview = viewChild.required(SchedulePreviewDialog);
 
   private readonly origin = signal('');
@@ -104,14 +104,6 @@ export class CalendarLinkDialog {
     afterNextRender(() => this.origin.set(window.location.origin));
   }
 
-  open(): void {
-    this.dialog().nativeElement.showModal();
-  }
-
-  close(): void {
-    this.dialog().nativeElement.close();
-  }
-
   onFormationChange(formationId: string): void {
     this.formationId.set(formationId || null);
     this.sectionId.set(null);
@@ -170,6 +162,9 @@ export class CalendarLinkDialog {
     await navigator.clipboard.writeText(url);
     this.linkCopied.set(true);
     setTimeout(() => this.linkCopied.set(false), 2000);
+
+    // Not "testCalendar()": that one is a preview, never a real generation.
+    this.stats.recordCalendarLinkGenerated();
   }
 
   async testCalendar(): Promise<void> {
@@ -193,6 +188,10 @@ export class CalendarLinkDialog {
         this.http.get(`${origin}/api/schedule.ics?${params.toString()}`, { responseType: 'text' }),
       );
 
+      // Dynamic import: ics-parser.ts pulls in ical.js (~78 KB, see docs/adr/0015) - loading it
+      // only when the preview is actually requested keeps it out of the initial bundle even
+      // though this form itself is always rendered on the home page (docs/adr/0016).
+      const { parseIcsToEvents } = await import('./ics-parser');
       this.previewEvents.set(parseIcsToEvents(icsText));
       this.previewWeekLabel.set(`semaine ${week}`);
       this.preview().open();

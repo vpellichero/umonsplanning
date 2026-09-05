@@ -54,7 +54,8 @@ une constante résolue à la compilation, ce bloc est directement présent dans 
 
 Le style (`app.css`, classe `.test-watermark`) est un `<svg>` de triangle d'avertissement encodé en
 data URI, répété via `background-repeat` sur un calque `position: fixed; inset: 0` à faible
-opacité (0.12), au-dessus du contenu mais sans jamais intercepter les clics. La couleur est
+opacité (0.12), **derrière** le contenu (voir correction ci-dessous) et sans jamais intercepter les
+clics. La couleur est
 déclarée comme token dans `styles/theme.css` (`--color-test-watermark-500`) par cohérence avec
 `docs/ai/frontend-ui.md` §2, bien qu'elle doive être dupliquée en dur dans le data URI (un
 `background-image` ne peut pas référencer une variable CSS) — synchronisation signalée par
@@ -70,3 +71,15 @@ commentaire dans `app.css`.
   (le fichier ne contient qu'une constante booléenne) — à revoir si ce mécanisme se complexifie.
 - Toute variable propre à un environnement suivra désormais ce même mécanisme
   (`environment.ts`/`environment.staging.ts`) plutôt qu'un flag ad hoc supplémentaire.
+
+## Correction (2026-09-05)
+
+Le calque était initialement peint **au-dessus** du contenu (`z-index: 50`) : à 0,12 d'opacité les
+triangles restaient discrets sur un fond uni, mais peints par-dessus le texte et les cartes, ils
+donnaient l'impression que ces éléments étaient eux-mêmes semi-transparents, rendant la lecture
+pénible. `z-index` passé à `-1` : dans le contexte d'empilement racine (ni `body` ni `app-root` ne
+créent leur propre contexte), un enfant `position: fixed` à z-index négatif se peint après le fond
+opaque de `body` (`bg-slate-50`, `styles.css`) mais avant tout contenu en flux normal (header,
+cartes, dialogues) — le filigrane ne reste donc visible que dans les zones réellement vides de la
+page (marges, espaces entre cartes), plus jamais par-dessus le texte ou les composants, sans
+qu'aucun élément de contenu n'ait eu besoin d'un fond explicite (ils sont déjà tous opaques).

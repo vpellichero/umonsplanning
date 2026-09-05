@@ -1,11 +1,15 @@
 {
+  "id": "/",
   "name": "UMonsPlanning",
   "short_name": "UMonsPlanning",
   "description": "Génère un lien de calendrier toujours à jour à partir de l'horaire PRONOTE de l'UMONS.",
+  "lang": "fr-BE",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#b30f3a",
+  "categories": ["education", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon-192.png",

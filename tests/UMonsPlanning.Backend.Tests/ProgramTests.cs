@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Json;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using UMonsPlanning.Backend.Stats;
 
 namespace UMonsPlanning.Backend.Tests;
 
@@ -35,5 +37,22 @@ public class ProgramTests : IClassFixture<WebApplicationFactory<Program>>
             TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PostCalendarLinksStats_IncrementsCounterReturnedByGet()
+    {
+        using HttpClient client = _factory.CreateClient();
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        CalendarLinkStatsDto before = await client.GetFromJsonAsync<CalendarLinkStatsDto>("/api/stats/calendar-links", ct)
+            ?? throw new InvalidOperationException("Expected a response body.");
+
+        HttpResponseMessage postResponse = await client.PostAsync("/api/stats/calendar-links", content: null, ct);
+        CalendarLinkStatsDto? afterPost = await postResponse.Content.ReadFromJsonAsync<CalendarLinkStatsDto>(ct);
+
+        postResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        afterPost.Should().NotBeNull();
+        afterPost!.Count.Should().Be(before.Count + 1);
     }
 }
